@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    function isOwner(responsableId) {
+      return isAuth() && request.auth.uid == responsableId;
+    }
+
+    function isOwnerOrAdmin(responsableId) {
+      return isOwner(responsableId) || isAdmin();
+    }
+
+    // ── Users ──────────────────────────────────────────────
+    match /users/{uid} {
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.auth.uid == uid;
+      allow update: if isAuth() && (request.auth.uid == uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ── Leads ──────────────────────────────────────────────
+    match /leads/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
+    // ── Diagnósticos ────────────────────────────────────────
+    match /diagnosticos/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
+    // ── Oportunidades ───────────────────────────────────────
+    match /oportunidades/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
+    // ── Propuestas ──────────────────────────────────────────
+    match /propuestas/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
+    // ── Clientes ────────────────────────────────────────────
+    match /clientes/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
+    // ── Proyectos ───────────────────────────────────────────
+    match /proyectos/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
+    // ── Abonos + pagos (subcolección) ───────────────────────
+    match /abonos/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+
+      match /pagos/{pagoId} {
+        allow read:   if isAuth();
+        allow create: if isAuth();
+        allow update: if isAuth();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ── Tareas ──────────────────────────────────────────────
+    match /tareas/{docId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
+  }
+}
