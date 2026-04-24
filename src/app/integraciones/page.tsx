@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useAuthContext }      from '@/components/auth/AuthProvider'
 import { PageHeader }          from '@/components/layout/PageHeader'
 import { Spinner }             from '@/components/ui'
+import { db }                  from '@/lib/firebase/config'
+import { doc, getDoc }         from 'firebase/firestore'
 import { cn }                  from '@/lib/utils'
 import {
   Mail, Calendar, FileSpreadsheet,
@@ -11,6 +13,17 @@ import {
   Download, Zap, Bell,
 } from 'lucide-react'
 
+// ── Check Google token directly from Firestore (client-side) ──
+async function checkGoogleConnected(uid: string): Promise<boolean> {
+  try {
+    const snap = await getDoc(doc(db, 'googleTokens', uid))
+    return snap.exists() && !!snap.data()?.access_token
+  } catch {
+    return false
+  }
+}
+
+// ── Integration card ──────────────────────────────────────
 function IntegrationCard({
   icon, title, description, connected, action, actionLabel, secondaryAction, secondaryLabel,
 }: {
@@ -50,8 +63,10 @@ function IntegrationCard({
       <div className="flex gap-2 flex-wrap">
         {action && actionLabel && (
           <button onClick={action}
-            className={cn('text-xs py-1.5 px-3 rounded-lg font-medium transition-all flex items-center gap-1.5',
-              connected ? 'btn-ghost' : 'btn-primary')}>
+            className={cn(
+              'text-xs py-1.5 px-3 rounded-lg font-medium transition-all flex items-center gap-1.5',
+              connected ? 'btn-ghost' : 'btn-primary'
+            )}>
             {actionLabel}
           </button>
         )}
@@ -65,6 +80,7 @@ function IntegrationCard({
   )
 }
 
+// ── Export card ───────────────────────────────────────────
 function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: boolean }) {
   const [loading, setLoading] = useState<string | null>(null)
   const [result,  setResult]  = useState<{ tipo: string; url: string } | null>(null)
@@ -126,6 +142,7 @@ function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: bo
   )
 }
 
+// ── Email composer ────────────────────────────────────────
 function EmailComposer({ uid }: { uid: string }) {
   const [to,      setTo]      = useState('')
   const [subject, setSubject] = useState('')
@@ -178,20 +195,19 @@ function EmailComposer({ uid }: { uid: string }) {
   )
 }
 
+// ── Main page ─────────────────────────────────────────────
 export default function IntegracionesPage() {
   const { user }   = useAuthContext()
   const [googleOk, setGoogleOk] = useState<boolean | null>(null)
 
   useEffect(() => {
-    // Check URL params first — if just connected, set true immediately
+    // Handle OAuth redirect params first
     const params = new URLSearchParams(window.location.search)
-
     if (params.get('connected') === 'google') {
       setGoogleOk(true)
       window.history.replaceState({}, '', '/integraciones')
       return
     }
-
     if (params.get('error')) {
       setGoogleOk(false)
       alert('Error conectando con Google. Intenta de nuevo.')
@@ -199,16 +215,9 @@ export default function IntegracionesPage() {
       return
     }
 
-    // Normal load — check status from server with small delay
+    // Check directly from Firestore client-side — persistent across logins
     if (!user) return
-    const timer = setTimeout(() => {
-      fetch(`/api/auth/google/status?uid=${user.uid}`)
-        .then(r => r.json())
-        .then(d => setGoogleOk(d.connected ?? false))
-        .catch(() => setGoogleOk(false))
-    }, 500)
-
-    return () => clearTimeout(timer)
+    checkGoogleConnected(user.uid).then(setGoogleOk)
   }, [user])
 
   function handleConnectGoogle() {
@@ -225,6 +234,7 @@ export default function IntegracionesPage() {
 
       <div className="px-8 pb-10 space-y-6">
 
+        {/* Google Workspace */}
         <div>
           <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
             Google Workspace
@@ -263,6 +273,7 @@ export default function IntegracionesPage() {
           </div>
         </div>
 
+        {/* Notificaciones */}
         <div>
           <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
             Notificaciones
@@ -309,6 +320,7 @@ export default function IntegracionesPage() {
           </div>
         </div>
 
+        {/* Email composer — only when Google connected */}
         {googleOk && user && (
           <div>
             <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
