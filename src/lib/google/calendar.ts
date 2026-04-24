@@ -52,7 +52,7 @@ export async function createCalendarEvent({
     })
 
     const googleEventId = res.data.id ?? ''
-    const meetLink      = res.data.conferenceData?.entryPoints?.[0]?.uri
+    const meetLink      = res.data.conferenceData?.entryPoints?.[0]?.uri ?? undefined
 
     // Save to Firestore
     await createDoc<CalendarEvent>('calendarEvents', {
