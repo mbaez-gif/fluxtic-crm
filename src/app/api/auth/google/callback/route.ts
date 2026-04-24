@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { google }     from 'googleapis'
-import { db }         from '@/lib/firebase/config'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { google } from 'googleapis'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -20,12 +18,20 @@ export async function GET(req: NextRequest) {
     )
     const { tokens } = await oauth2.getToken(code)
 
-    await setDoc(doc(db, 'googleTokens', uid), {
-      ...tokens,
-      actualizadoEn: serverTimestamp(),
-    }, { merge: true })
+    // En vez de guardar en Firestore desde el servidor (requiere Admin SDK),
+    // pasamos los tokens al cliente via URL para que los guarde con su sesión Auth
+    const params = new URLSearchParams({
+      google_connected: '1',
+      uid,
+      access_token:     tokens.access_token  ?? '',
+      refresh_token:    tokens.refresh_token ?? '',
+      expiry_date:      String(tokens.expiry_date ?? ''),
+      token_type:       tokens.token_type    ?? 'Bearer',
+    })
 
-    return NextResponse.redirect(new URL('/integraciones?connected=google', req.url))
+    return NextResponse.redirect(
+      new URL(`/integraciones/save-token?${params.toString()}`, req.url)
+    )
   } catch (err) {
     console.error('OAuth callback error:', err)
     return NextResponse.redirect(new URL('/integraciones?error=token_failed', req.url))
