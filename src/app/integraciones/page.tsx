@@ -20,6 +20,7 @@ interface GoogleTokens {
   expiry_date:   number
   token_type:    string
   scope?:        string
+  [key: string]: unknown
 }
 
 // ── Load tokens from Firestore (client-side, authenticated) ──
@@ -97,7 +98,7 @@ function ExportCard({ tokens }: { tokens: GoogleTokens | null }) {
       const res  = await fetch('/api/sheets/export', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
+        body:    JSON.stringify({ scope: tokens.scope,
           access_token:  tokens.access_token,
           refresh_token: tokens.refresh_token,
           expiry_date:   tokens.expiry_date,
@@ -168,7 +169,7 @@ function EmailComposer({ tokens }: { tokens: GoogleTokens | null }) {
       const res  = await fetch('/api/gmail/send', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
+        body:    JSON.stringify({ scope: tokens.scope,
           access_token:  tokens.access_token,
           refresh_token: tokens.refresh_token,
           expiry_date:   tokens.expiry_date,

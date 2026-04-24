@@ -13,30 +13,34 @@ export default function SaveTokenPage() {
   const router        = useRouter()
   const { user }      = useAuthContext()
   const [status, setStatus] = useState<'saving' | 'ok' | 'error'>('saving')
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     if (!user) return
 
     async function saveToken() {
       try {
-        const params      = new URLSearchParams(window.location.search)
+        const params       = new URLSearchParams(window.location.search)
         const accessToken  = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         const expiryDate   = params.get('expiry_date')
         const tokenType    = params.get('token_type') ?? 'Bearer'
+        const scope        = params.get('scope') ?? ''
         const uid          = params.get('uid')
 
         if (!accessToken || !uid || uid !== user!.uid) {
+          setErrorMsg('Token inválido o usuario incorrecto.')
           setStatus('error')
           return
         }
 
-        // Save tokens to Firestore using the user's own Auth session
+        // Save ALL token fields including scope
         await setDoc(doc(db, 'googleTokens', user!.uid), {
           access_token:  accessToken,
           refresh_token: refreshToken ?? '',
           expiry_date:   expiryDate ? parseInt(expiryDate) : null,
           token_type:    tokenType,
+          scope,          // ← save scope so we know what permissions are granted
           actualizadoEn: serverTimestamp(),
         }, { merge: true })
 
@@ -44,6 +48,7 @@ export default function SaveTokenPage() {
         setTimeout(() => router.replace('/integraciones?connected=google'), 1500)
       } catch (err) {
         console.error('Error saving token:', err)
+        setErrorMsg('Error al guardar el token. Intentá de nuevo.')
         setStatus('error')
       }
     }
@@ -72,6 +77,7 @@ export default function SaveTokenPage() {
             <>
               <XCircle size={40} className="text-flux-danger" />
               <p className="text-sm text-flux-text1 font-medium">Error al conectar</p>
+              <p className="text-xs text-flux-text3">{errorMsg}</p>
               <button
                 onClick={() => router.replace('/integraciones')}
                 className="btn-ghost text-xs mt-2"

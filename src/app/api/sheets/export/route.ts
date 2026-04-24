@@ -12,7 +12,7 @@ function tsStr(ts: Timestamp | Date | undefined): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { access_token, refresh_token, expiry_date, tipo } = await req.json()
+    const { access_token, refresh_token, expiry_date, scope, tipo } = await req.json()
 
     if (!access_token || !tipo) {
       return NextResponse.json({ error: 'access_token y tipo requeridos' }, { status: 400 })
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     oauth2.setCredentials({ access_token, refresh_token, expiry_date })
 
     const sheets = google.sheets({ version: 'v4', auth: oauth2 })
-    const drive  = google.drive({ version: 'v3', auth: oauth2 })
+    const hasDrive = scope && scope.includes('drive')
 
     let rows: string[][] = []
     let titulo = ''
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       const data = await readDocs<Oportunidad>('oportunidades')
       titulo = `Fluxtic — Pipeline ${new Date().toLocaleDateString('es-ES')}`
       rows = [
-        ['Título', 'Valor', 'Probabilidad', 'Etapa', 'Cierre', 'Creado'],
+        ['Título', 'Valor', 'Probabilidad', 'Etapa', 'Cierre estimado', 'Creado'],
         ...data.map(o => [o.titulo, String(o.valorEstimado), `${o.probabilidad}%`, o.etapa, tsStr(o.cierreEstimado), tsStr(o.creadoEn)]),
       ]
     } else if (tipo === 'clientes') {
@@ -56,25 +56,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'tipo inválido' }, { status: 400 })
     }
 
-    const driveRes = await drive.files.create({
-      requestBody: { name: titulo, mimeType: 'application/vnd.google-apps.spreadsheet' },
-      fields: 'id,webViewLink',
-    })
+    let spreadsheetId: string
+    let url: string
 
-    const spreadsheetId = driveRes.data.id!
-    const url           = driveRes.data.webViewLink!
+    if (hasDrive) {
+      // Use Drive API to create — file appears in My Drive with proper ownership
+      const drive = google.drive({ version: 'v3', auth: oauth2 })
+      const driveRes = await drive.files.create({
+        requestBody: {
+          name:     titulo,
+          mimeType: 'application/vnd.google-apps.spreadsheet',
+        },
+        fields: 'id,webViewLink',
+      })
+      spreadsheetId = driveRes.data.id!
+      url           = driveRes.data.webViewLink!
+    } else {
+      // Fallback: create via Sheets API — works without drive scope
+      const created = await sheets.spreadsheets.create({
+        requestBody: { properties: { title: titulo } },
+      })
+      spreadsheetId = created.data.spreadsheetId!
+      url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+    }
 
+    // Write data
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: 'A1',
+      range:            'A1',
       valueInputOption: 'RAW',
-      requestBody: { values: rows },
+      requestBody:      { values: rows },
+    })
+
+    // Bold header
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{
+          repeatCell: {
+            range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
+            cell: { userEnteredFormat: { textFormat: { bold: true } } },
+            fields: 'userEnteredFormat.textFormat',
+          },
+        }],
+      },
     })
 
     return NextResponse.json({ success: true, url })
   } catch (err: unknown) {
     console.error('Sheets export error:', err)
-    const error = err instanceof Error ? err.message : 'Error'
-    return NextResponse.json({ success: false, error }, { status: 500 })
+    const msg = err instanceof Error ? err.message : 'Error'
+    const friendly = msg.includes('insufficient') || msg.includes('permission')
+      ? 'Permisos insuficientes. Reconectá Google en Integraciones.'
+      : msg.includes('invalid_grant')
+      ? 'Token expirado. Ve a Integraciones → Reconectar Google.'
+      : msg
+    return NextResponse.json({ success: false, error: friendly }, { status: 500 })
   }
 }
