@@ -11,7 +11,6 @@ import {
   Download, Zap, Bell,
 } from 'lucide-react'
 
-// ── Integration card ──────────────────────────────────────
 function IntegrationCard({
   icon, title, description, connected, action, actionLabel, secondaryAction, secondaryLabel,
 }: {
@@ -66,7 +65,6 @@ function IntegrationCard({
   )
 }
 
-// ── Export card ───────────────────────────────────────────
 function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: boolean }) {
   const [loading, setLoading] = useState<string | null>(null)
   const [result,  setResult]  = useState<{ tipo: string; url: string } | null>(null)
@@ -128,7 +126,6 @@ function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: bo
   )
 }
 
-// ── Email composer ────────────────────────────────────────
 function EmailComposer({ uid }: { uid: string }) {
   const [to,      setTo]      = useState('')
   const [subject, setSubject] = useState('')
@@ -181,30 +178,38 @@ function EmailComposer({ uid }: { uid: string }) {
   )
 }
 
-// ── Main page ─────────────────────────────────────────────
 export default function IntegracionesPage() {
-  const { user } = useAuthContext()
+  const { user }   = useAuthContext()
   const [googleOk, setGoogleOk] = useState<boolean | null>(null)
 
   useEffect(() => {
-    if (!user) return
-    fetch(`/api/auth/google/status?uid=${user.uid}`)
-      .then(r => r.json())
-      .then(d => setGoogleOk(d.connected ?? false))
-      .catch(() => setGoogleOk(false))
-  }, [user])
-
-  useEffect(() => {
+    // Check URL params first — if just connected, set true immediately
     const params = new URLSearchParams(window.location.search)
+
     if (params.get('connected') === 'google') {
       setGoogleOk(true)
       window.history.replaceState({}, '', '/integraciones')
+      return
     }
+
     if (params.get('error')) {
+      setGoogleOk(false)
       alert('Error conectando con Google. Intenta de nuevo.')
       window.history.replaceState({}, '', '/integraciones')
+      return
     }
-  }, [])
+
+    // Normal load — check status from server with small delay
+    if (!user) return
+    const timer = setTimeout(() => {
+      fetch(`/api/auth/google/status?uid=${user.uid}`)
+        .then(r => r.json())
+        .then(d => setGoogleOk(d.connected ?? false))
+        .catch(() => setGoogleOk(false))
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [user])
 
   function handleConnectGoogle() {
     if (!user) return
@@ -220,7 +225,6 @@ export default function IntegracionesPage() {
 
       <div className="px-8 pb-10 space-y-6">
 
-        {/* Google Workspace */}
         <div>
           <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
             Google Workspace
@@ -259,7 +263,6 @@ export default function IntegracionesPage() {
           </div>
         </div>
 
-        {/* Notificaciones */}
         <div>
           <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
             Notificaciones
@@ -306,7 +309,6 @@ export default function IntegracionesPage() {
           </div>
         </div>
 
-        {/* Email composer */}
         {googleOk && user && (
           <div>
             <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
