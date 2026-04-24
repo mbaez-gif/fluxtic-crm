@@ -1,28 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { google }      from 'googleapis'
-import { db }          from '@/lib/firebase/config'
-import { doc, getDoc } from 'firebase/firestore'
-import { readDocs }    from '@/lib/firebase/firestore'
+import { google }   from 'googleapis'
+import { readDocs } from '@/lib/firebase/firestore'
 import type { Lead, Oportunidad, Cliente } from '@/types'
-import { Timestamp }   from 'firebase/firestore'
-
-async function getOAuthClient(uid: string) {
-  const snap = await getDoc(doc(db, 'googleTokens', uid))
-  if (!snap.exists()) throw new Error('Google no conectado')
-  const tokens = snap.data()
-  const oauth2 = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  )
-  oauth2.setCredentials({
-    access_token:  tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    expiry_date:   tokens.expiry_date,
-    token_type:    tokens.token_type ?? 'Bearer',
-  })
-  return oauth2
-}
+import { Timestamp } from 'firebase/firestore'
 
 function tsStr(ts: Timestamp | Date | undefined): string {
   if (!ts) return ''
@@ -32,12 +12,21 @@ function tsStr(ts: Timestamp | Date | undefined): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { uid, tipo } = await req.json()
-    if (!uid || !tipo) return NextResponse.json({ error: 'uid y tipo requeridos' }, { status: 400 })
+    const { access_token, refresh_token, expiry_date, tipo } = await req.json()
 
-    const auth   = await getOAuthClient(uid)
-    const sheets = google.sheets({ version: 'v4', auth })
-    const drive  = google.drive({ version: 'v3', auth })
+    if (!access_token || !tipo) {
+      return NextResponse.json({ error: 'access_token y tipo requeridos' }, { status: 400 })
+    }
+
+    const oauth2 = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    )
+    oauth2.setCredentials({ access_token, refresh_token, expiry_date })
+
+    const sheets = google.sheets({ version: 'v4', auth: oauth2 })
+    const drive  = google.drive({ version: 'v3', auth: oauth2 })
 
     let rows: string[][] = []
     let titulo = ''
@@ -53,7 +42,7 @@ export async function POST(req: NextRequest) {
       const data = await readDocs<Oportunidad>('oportunidades')
       titulo = `Fluxtic — Pipeline ${new Date().toLocaleDateString('es-ES')}`
       rows = [
-        ['Título', 'Valor (€)', 'Probabilidad', 'Etapa', 'Cierre', 'Creado'],
+        ['Título', 'Valor', 'Probabilidad', 'Etapa', 'Cierre', 'Creado'],
         ...data.map(o => [o.titulo, String(o.valorEstimado), `${o.probabilidad}%`, o.etapa, tsStr(o.cierreEstimado), tsStr(o.creadoEn)]),
       ]
     } else if (tipo === 'clientes') {
@@ -67,12 +56,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'tipo inválido' }, { status: 400 })
     }
 
-    // Create via Drive (avoids Sheets-only permission issues)
     const driveRes = await drive.files.create({
-      requestBody: {
-        name:     titulo,
-        mimeType: 'application/vnd.google-apps.spreadsheet',
-      },
+      requestBody: { name: titulo, mimeType: 'application/vnd.google-apps.spreadsheet' },
       fields: 'id,webViewLink',
     })
 
@@ -81,9 +66,9 @@ export async function POST(req: NextRequest) {
 
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range:            'A1',
+      range: 'A1',
       valueInputOption: 'RAW',
-      requestBody:      { values: rows },
+      requestBody: { values: rows },
     })
 
     return NextResponse.json({ success: true, url })

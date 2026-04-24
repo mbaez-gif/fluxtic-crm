@@ -13,13 +13,25 @@ import {
   Download, Zap, Bell,
 } from 'lucide-react'
 
-// ── Check Google token directly from Firestore (client-side) ──
-async function checkGoogleConnected(uid: string): Promise<boolean> {
+// ── Token type ────────────────────────────────────────────
+interface GoogleTokens {
+  access_token:  string
+  refresh_token: string
+  expiry_date:   number
+  token_type:    string
+  scope?:        string
+}
+
+// ── Load tokens from Firestore (client-side, authenticated) ──
+async function loadGoogleTokens(uid: string): Promise<GoogleTokens | null> {
   try {
     const snap = await getDoc(doc(db, 'googleTokens', uid))
-    return snap.exists() && !!snap.data()?.access_token
+    if (!snap.exists()) return null
+    const d = snap.data()
+    if (!d?.access_token) return null
+    return d as GoogleTokens
   } catch {
-    return false
+    return null
   }
 }
 
@@ -48,25 +60,17 @@ function IntegrationCard({
             <p className="text-2xs text-flux-text3 mt-0.5">{description}</p>
           </div>
         </div>
-        {connected === null ? (
-          <Spinner size={14} />
-        ) : connected ? (
-          <div className="flex items-center gap-1.5 text-xs text-flux-success">
-            <CheckCircle size={13} /> Conectado
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-xs text-flux-text3">
-            <XCircle size={13} /> No conectado
-          </div>
-        )}
+        {connected === null ? <Spinner size={14} />
+          : connected
+          ? <div className="flex items-center gap-1.5 text-xs text-flux-success"><CheckCircle size={13} /> Conectado</div>
+          : <div className="flex items-center gap-1.5 text-xs text-flux-text3"><XCircle size={13} /> No conectado</div>
+        }
       </div>
       <div className="flex gap-2 flex-wrap">
         {action && actionLabel && (
           <button onClick={action}
-            className={cn(
-              'text-xs py-1.5 px-3 rounded-lg font-medium transition-all flex items-center gap-1.5',
-              connected ? 'btn-ghost' : 'btn-primary'
-            )}>
+            className={cn('text-xs py-1.5 px-3 rounded-lg font-medium transition-all flex items-center gap-1.5',
+              connected ? 'btn-ghost' : 'btn-primary')}>
             {actionLabel}
           </button>
         )}
@@ -81,18 +85,24 @@ function IntegrationCard({
 }
 
 // ── Export card ───────────────────────────────────────────
-function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: boolean }) {
+function ExportCard({ tokens }: { tokens: GoogleTokens | null }) {
   const [loading, setLoading] = useState<string | null>(null)
   const [result,  setResult]  = useState<{ tipo: string; url: string } | null>(null)
   const [error,   setError]   = useState('')
 
   async function handleExport(tipo: 'leads' | 'oportunidades' | 'clientes') {
+    if (!tokens) return
     setLoading(tipo); setResult(null); setError('')
     try {
       const res  = await fetch('/api/sheets/export', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ uid, tipo }),
+        body:    JSON.stringify({
+          access_token:  tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expiry_date:   tokens.expiry_date,
+          tipo,
+        }),
       })
       const data = await res.json()
       if (data.success) setResult({ tipo, url: data.url })
@@ -112,7 +122,7 @@ function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: bo
           <p className="text-2xs text-flux-text3">Genera una hoja de cálculo con tus datos</p>
         </div>
       </div>
-      {!googleConnected ? (
+      {!tokens ? (
         <p className="text-xs text-flux-text3">Conecta Google primero para usar esta función.</p>
       ) : (
         <>
@@ -143,7 +153,7 @@ function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: bo
 }
 
 // ── Email composer ────────────────────────────────────────
-function EmailComposer({ uid }: { uid: string }) {
+function EmailComposer({ tokens }: { tokens: GoogleTokens | null }) {
   const [to,      setTo]      = useState('')
   const [subject, setSubject] = useState('')
   const [body,    setBody]    = useState('')
@@ -152,13 +162,18 @@ function EmailComposer({ uid }: { uid: string }) {
   const [error,   setError]   = useState('')
 
   async function handleSend() {
-    if (!to || !subject || !body) return
+    if (!to || !subject || !body || !tokens) return
     setSending(true); setError('')
     try {
       const res  = await fetch('/api/gmail/send', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ uid, to, subject, body }),
+        body:    JSON.stringify({
+          access_token:  tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expiry_date:   tokens.expiry_date,
+          to, subject, body,
+        }),
       })
       const data = await res.json()
       if (data.success) {
@@ -184,7 +199,7 @@ function EmailComposer({ uid }: { uid: string }) {
           placeholder="Cuerpo del email…"
           value={body} onChange={e => setBody(e.target.value)} />
         {error && <p className="text-xs text-flux-danger">{error}</p>}
-        <button onClick={handleSend} disabled={sending || !to || !subject || !body}
+        <button onClick={handleSend} disabled={sending || !to || !subject || !body || !tokens}
           className="btn-primary text-sm flex items-center gap-2">
           {sending ? <><Spinner size={14} /> Enviando…</>
            : sent   ? <><CheckCircle size={14} /> Enviado</>
@@ -198,26 +213,22 @@ function EmailComposer({ uid }: { uid: string }) {
 // ── Main page ─────────────────────────────────────────────
 export default function IntegracionesPage() {
   const { user }   = useAuthContext()
-  const [googleOk, setGoogleOk] = useState<boolean | null>(null)
+  const [tokens,   setTokens]   = useState<GoogleTokens | null | undefined>(undefined)
+  const googleOk = tokens !== undefined ? tokens !== null : null
 
   useEffect(() => {
-    // Handle OAuth redirect params first
     const params = new URLSearchParams(window.location.search)
     if (params.get('connected') === 'google') {
-      setGoogleOk(true)
       window.history.replaceState({}, '', '/integraciones')
-      return
     }
     if (params.get('error')) {
-      setGoogleOk(false)
       alert('Error conectando con Google. Intenta de nuevo.')
       window.history.replaceState({}, '', '/integraciones')
-      return
     }
 
-    // Check directly from Firestore client-side — persistent across logins
     if (!user) return
-    checkGoogleConnected(user.uid).then(setGoogleOk)
+    // Load tokens directly from Firestore using authenticated client session
+    loadGoogleTokens(user.uid).then(setTokens)
   }, [user])
 
   function handleConnectGoogle() {
@@ -256,7 +267,7 @@ export default function IntegracionesPage() {
               action={handleConnectGoogle}
               actionLabel={googleOk ? 'Reconectar' : 'Conectar Google'}
             />
-            {user && <ExportCard uid={user.uid} googleConnected={googleOk ?? false} />}
+            <ExportCard tokens={tokens ?? null} />
             <IntegrationCard
               icon={<ExternalLink size={18} />}
               title="Formulario de captación"
@@ -298,7 +309,6 @@ export default function IntegracionesPage() {
                 <ExternalLink size={12} /> Guía Slack Webhooks
               </a>
             </div>
-
             <div className="flux-card">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl bg-flux-muted flex items-center justify-center text-flux-teal">
@@ -320,13 +330,13 @@ export default function IntegracionesPage() {
           </div>
         </div>
 
-        {/* Email composer — only when Google connected */}
-        {googleOk && user && (
+        {/* Email composer */}
+        {googleOk && (
           <div>
             <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
               Probar Gmail
             </h2>
-            <EmailComposer uid={user.uid} />
+            <EmailComposer tokens={tokens ?? null} />
           </div>
         )}
       </div>
