@@ -59,7 +59,7 @@ export interface Oportunidad {
   diagnosticoId?:   string
   titulo:           string
   valorEstimado:    number
-  probabilidad:     number   // 0-100
+  probabilidad:     number
   etapa:            OportunidadEtapa
   cierreEstimado:   Timestamp
   responsableId:    string
@@ -133,9 +133,9 @@ export type AbonoEstado       = 'activo' | 'pausado' | 'cancelado'
 export type PagoEstado        = 'pendiente' | 'pagado' | 'vencido'
 
 export interface Pago {
-  id:          string
-  abonoId:     string
-  monto:       number
+  id:           string
+  abonoId:      string
+  monto:        number
   fechaEmitido: Timestamp
   fechaPagado?: Timestamp
   estado:       PagoEstado
@@ -147,6 +147,7 @@ export interface Abono {
   nombre:          string
   descripcion:     string
   monto:           number
+  moneda:          string   // ← ARS | USD | EUR
   periodicidad:    AbonoPeriodicidad
   fechaInicio:     Timestamp
   fechaRenovacion: Timestamp
