@@ -1,19 +1,14 @@
 'use client'
 
-// IMPORTANTE: Este componente es 100% cliente.
-// No importa nada de googleapis ni de lib/google/*.
-// Toda la lógica de Google va en las API Routes (servidor).
-
 import { useState, useEffect } from 'react'
 import { useAuthContext }      from '@/components/auth/AuthProvider'
-import { AppShell }            from '@/components/layout/AppShell'
 import { PageHeader }          from '@/components/layout/PageHeader'
 import { Spinner }             from '@/components/ui'
 import { cn }                  from '@/lib/utils'
 import {
   Mail, Calendar, FileSpreadsheet,
   CheckCircle, XCircle, ExternalLink,
-  Download, Zap, Bell, Plug,
+  Download, Zap, Bell,
 } from 'lucide-react'
 
 // ── Integration card ──────────────────────────────────────
@@ -78,9 +73,7 @@ function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: bo
   const [error,   setError]   = useState('')
 
   async function handleExport(tipo: 'leads' | 'oportunidades' | 'clientes') {
-    setLoading(tipo)
-    setResult(null)
-    setError('')
+    setLoading(tipo); setResult(null); setError('')
     try {
       const res  = await fetch('/api/sheets/export', {
         method:  'POST',
@@ -90,11 +83,8 @@ function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: bo
       const data = await res.json()
       if (data.success) setResult({ tipo, url: data.url })
       else setError(data.error ?? 'Error exportando')
-    } catch {
-      setError('Error de conexión')
-    } finally {
-      setLoading(null)
-    }
+    } catch { setError('Error de conexión') }
+    finally { setLoading(null) }
   }
 
   return (
@@ -108,7 +98,6 @@ function ExportCard({ uid, googleConnected }: { uid: string; googleConnected: bo
           <p className="text-2xs text-flux-text3">Genera una hoja de cálculo con tus datos</p>
         </div>
       </div>
-
       {!googleConnected ? (
         <p className="text-xs text-flux-text3">Conecta Google primero para usar esta función.</p>
       ) : (
@@ -162,14 +151,9 @@ function EmailComposer({ uid }: { uid: string }) {
         setSent(true)
         setTo(''); setSubject(''); setBody('')
         setTimeout(() => setSent(false), 3000)
-      } else {
-        setError(data.error ?? 'Error al enviar')
-      }
-    } catch {
-      setError('Error de conexión')
-    } finally {
-      setSending(false)
-    }
+      } else { setError(data.error ?? 'Error al enviar') }
+    } catch { setError('Error de conexión') }
+    finally { setSending(false) }
   }
 
   return (
@@ -202,7 +186,6 @@ export default function IntegracionesPage() {
   const { user } = useAuthContext()
   const [googleOk, setGoogleOk] = useState<boolean | null>(null)
 
-  // Check Google connection via API (server-side check)
   useEffect(() => {
     if (!user) return
     fetch(`/api/auth/google/status?uid=${user.uid}`)
@@ -211,7 +194,6 @@ export default function IntegracionesPage() {
       .catch(() => setGoogleOk(false))
   }, [user])
 
-  // Handle OAuth result params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('connected') === 'google') {
@@ -226,117 +208,114 @@ export default function IntegracionesPage() {
 
   function handleConnectGoogle() {
     if (!user) return
-    // Redirect to server-side OAuth URL generator
     window.location.href = `/api/auth/google/start?uid=${user.uid}`
   }
 
   return (
-    <AppShell>
-      <div className="animate-fade-in">
-        <PageHeader
-          title="Integraciones"
-          subtitle="Conecta Fluxtic con Google Workspace y Slack"
-        />
+    <div className="animate-fade-in">
+      <PageHeader
+        title="Integraciones"
+        subtitle="Conecta Fluxtic con Google Workspace y Slack"
+      />
 
-        <div className="px-8 pb-10 space-y-6">
+      <div className="px-8 pb-10 space-y-6">
 
-          {/* Google Workspace */}
-          <div>
-            <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
-              Google Workspace
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <IntegrationCard
-                icon={<Mail size={18} />}
-                title="Gmail"
-                description="Envía emails desde el CRM registrados en el historial"
-                connected={googleOk}
-                action={handleConnectGoogle}
-                actionLabel={googleOk ? 'Reconectar' : 'Conectar Google'}
-              />
-              <IntegrationCard
-                icon={<Calendar size={18} />}
-                title="Google Calendar"
-                description="Crea reuniones vinculadas a clientes y oportunidades"
-                connected={googleOk}
-                action={handleConnectGoogle}
-                actionLabel={googleOk ? 'Reconectar' : 'Conectar Google'}
-              />
-              {user && <ExportCard uid={user.uid} googleConnected={googleOk ?? false} />}
-              <IntegrationCard
-                icon={<ExternalLink size={18} />}
-                title="Formulario de captación"
-                description="Captura leads desde tu web automáticamente"
-                connected={true}
-                action={() => window.open('/formulario', '_blank')}
-                actionLabel="Ver formulario"
-                secondaryAction={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/formulario`)
-                  alert('URL copiada al portapapeles')
-                }}
-                secondaryLabel="Copiar URL"
-              />
-            </div>
+        {/* Google Workspace */}
+        <div>
+          <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
+            Google Workspace
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <IntegrationCard
+              icon={<Mail size={18} />}
+              title="Gmail"
+              description="Envía emails desde el CRM registrados en el historial"
+              connected={googleOk}
+              action={handleConnectGoogle}
+              actionLabel={googleOk ? 'Reconectar' : 'Conectar Google'}
+            />
+            <IntegrationCard
+              icon={<Calendar size={18} />}
+              title="Google Calendar"
+              description="Crea reuniones vinculadas a clientes y oportunidades"
+              connected={googleOk}
+              action={handleConnectGoogle}
+              actionLabel={googleOk ? 'Reconectar' : 'Conectar Google'}
+            />
+            {user && <ExportCard uid={user.uid} googleConnected={googleOk ?? false} />}
+            <IntegrationCard
+              icon={<ExternalLink size={18} />}
+              title="Formulario de captación"
+              description="Captura leads desde tu web automáticamente"
+              connected={true}
+              action={() => window.open('/formulario', '_blank')}
+              actionLabel="Ver formulario"
+              secondaryAction={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/formulario`)
+                alert('URL copiada al portapapeles')
+              }}
+              secondaryLabel="Copiar URL"
+            />
           </div>
-
-          {/* Notificaciones */}
-          <div>
-            <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
-              Notificaciones
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flux-card">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-flux-muted flex items-center justify-center text-flux-teal">
-                    <Bell size={18} />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-flux-text1 text-sm">Slack</h3>
-                    <p className="text-2xs text-flux-text3">Alertas de leads, oportunidades y abonos</p>
-                  </div>
-                </div>
-                <p className="text-xs text-flux-text3 leading-relaxed">
-                  Configurá <code className="bg-flux-muted px-1 py-0.5 rounded text-flux-teal">SLACK_WEBHOOK_URL</code> en
-                  Vercel → Settings → Environment Variables para activar las alertas.
-                </p>
-                <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener noreferrer"
-                  className="mt-3 btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 w-fit">
-                  <ExternalLink size={12} /> Guía Slack Webhooks
-                </a>
-              </div>
-
-              <div className="flux-card">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-flux-muted flex items-center justify-center text-flux-teal">
-                    <Zap size={18} />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-flux-text1 text-sm">n8n</h3>
-                    <p className="text-2xs text-flux-text3">Automatizaciones entre herramientas</p>
-                  </div>
-                </div>
-                <p className="text-xs text-flux-text3 leading-relaxed mb-3">
-                  Instalá n8n en Railway para conectar el CRM con WhatsApp, Gmail y más.
-                </p>
-                <a href="https://railway.app/new/template/n8n" target="_blank" rel="noopener noreferrer"
-                  className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 w-fit">
-                  <ExternalLink size={12} /> Instalar n8n en Railway
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Email composer (only if Google connected) */}
-          {googleOk && user && (
-            <div>
-              <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
-                Probar Gmail
-              </h2>
-              <EmailComposer uid={user.uid} />
-            </div>
-          )}
         </div>
+
+        {/* Notificaciones */}
+        <div>
+          <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
+            Notificaciones
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flux-card">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-flux-muted flex items-center justify-center text-flux-teal">
+                  <Bell size={18} />
+                </div>
+                <div>
+                  <h3 className="font-medium text-flux-text1 text-sm">Slack</h3>
+                  <p className="text-2xs text-flux-text3">Alertas de leads, oportunidades y abonos</p>
+                </div>
+              </div>
+              <p className="text-xs text-flux-text3 leading-relaxed">
+                Configurá <code className="bg-flux-muted px-1 py-0.5 rounded text-flux-teal">SLACK_WEBHOOK_URL</code> en
+                Vercel → Settings → Environment Variables para activar las alertas.
+              </p>
+              <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener noreferrer"
+                className="mt-3 btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 w-fit">
+                <ExternalLink size={12} /> Guía Slack Webhooks
+              </a>
+            </div>
+
+            <div className="flux-card">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-flux-muted flex items-center justify-center text-flux-teal">
+                  <Zap size={18} />
+                </div>
+                <div>
+                  <h3 className="font-medium text-flux-text1 text-sm">n8n</h3>
+                  <p className="text-2xs text-flux-text3">Automatizaciones entre herramientas</p>
+                </div>
+              </div>
+              <p className="text-xs text-flux-text3 leading-relaxed mb-3">
+                Instalá n8n en Railway para conectar el CRM con WhatsApp, Gmail y más.
+              </p>
+              <a href="https://railway.app/new/template/n8n" target="_blank" rel="noopener noreferrer"
+                className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 w-fit">
+                <ExternalLink size={12} /> Instalar n8n en Railway
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* Email composer */}
+        {googleOk && user && (
+          <div>
+            <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-3">
+              Probar Gmail
+            </h2>
+            <EmailComposer uid={user.uid} />
+          </div>
+        )}
       </div>
-    </AppShell>
+    </div>
   )
 }
