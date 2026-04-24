@@ -1,17 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { google }      from 'googleapis'
 import { db }          from '@/lib/firebase/config'
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
 async function getOAuthClient(uid: string) {
   const snap = await getDoc(doc(db, 'googleTokens', uid))
   if (!snap.exists()) {
-    throw new Error('Google no conectado. Ve a Integraciones y conectá tu cuenta.')
+    throw new Error('Google no conectado. Ve a Integraciones → Conectar Google.')
   }
   const tokens = snap.data()
   if (!tokens?.access_token) {
-    throw new Error('Token inválido. Reconectá Google en Integraciones.')
+    throw new Error('Token inválido. Ve a Integraciones → Reconectar Google.')
   }
+
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -22,7 +23,18 @@ async function getOAuthClient(uid: string) {
     refresh_token: tokens.refresh_token,
     expiry_date:   tokens.expiry_date,
     token_type:    tokens.token_type ?? 'Bearer',
+    scope:         tokens.scope,
   })
+
+  // Auto-save refreshed tokens
+  oauth2.on('tokens', async newTokens => {
+    await setDoc(doc(db, 'googleTokens', uid), {
+      ...tokens,
+      ...newTokens,
+      actualizadoEn: serverTimestamp(),
+    }, { merge: true })
+  })
+
   return oauth2
 }
 
@@ -48,12 +60,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltan campos: uid, to, subject, body' }, { status: 400 })
     }
 
-    const auth  = await getOAuthClient(uid)
+    let auth
+    try {
+      auth = await getOAuthClient(uid)
+    } catch (e: unknown) {
+      return NextResponse.json({
+        error: e instanceof Error ? e.message : 'Error de autenticación con Google',
+      }, { status: 401 })
+    }
+
     const gmail = google.gmail({ version: 'v1', auth })
 
-    const profile   = await gmail.users.getProfile({ userId: 'me' })
-    const fromEmail = profile.data.emailAddress ?? ''
-    const raw       = encodeEmail(to, fromEmail, subject, body)
+    // Get sender email
+    let fromEmail = ''
+    try {
+      const profile = await gmail.users.getProfile({ userId: 'me' })
+      fromEmail = profile.data.emailAddress ?? ''
+    } catch {
+      return NextResponse.json({
+        error: 'No se pudo acceder a Gmail. Reconectá Google en Integraciones con los permisos de Gmail.',
+      }, { status: 403 })
+    }
+
+    const raw = encodeEmail(to, fromEmail, subject, body)
 
     const res = await gmail.users.messages.send({
       userId: 'me',
@@ -73,10 +102,9 @@ export async function POST(req: NextRequest) {
       actualizadoEn: serverTimestamp(),
     })
 
-    // Slack — fire and forget
     if (process.env.SLACK_WEBHOOK_URL) {
       fetch(process.env.SLACK_WEBHOOK_URL, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: `📧 Email enviado a ${to} — ${subject}` }),
       }).catch(() => {})
@@ -85,7 +113,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, messageId: res.data.id })
   } catch (err: unknown) {
     console.error('Gmail send error:', err)
-    const error = err instanceof Error ? err.message : 'Error desconocido'
-    return NextResponse.json({ success: false, error }, { status: 500 })
+    const msg = err instanceof Error ? err.message : 'Error desconocido'
+
+    // Common error messages in Spanish
+    const friendly = msg.includes('insufficient') || msg.includes('permission')
+      ? 'Permisos insuficientes. Reconectá Google en Integraciones y aceptá todos los permisos.'
+      : msg.includes('invalid_grant') || msg.includes('Token')
+      ? 'Token expirado. Ve a Integraciones → Reconectar Google.'
+      : msg
+
+    return NextResponse.json({ success: false, error: friendly }, { status: 500 })
   }
 }

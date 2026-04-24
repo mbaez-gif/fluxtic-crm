@@ -17,14 +17,15 @@ export async function GET(req: NextRequest) {
 
   const url = oauth2.generateAuthUrl({
     access_type: 'offline',
-    prompt:      'consent',
+    prompt:      'consent',  // force re-consent to get all scopes
     state:       uid,
     scope: [
       'https://www.googleapis.com/auth/gmail.send',
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/calendar',
       'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/drive.file',  // ← needed to create files
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/userinfo.email',
     ],
   })
 
