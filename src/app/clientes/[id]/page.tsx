@@ -1,19 +1,17 @@
 'use client'
 
-import { use }             from 'react'
-import { useDocument }     from '@/lib/hooks/useDocument'
-import { useCollection }   from '@/lib/hooks/useCollection'
+import { useDocument }   from '@/lib/hooks/useDocument'
+import { useCollection } from '@/lib/hooks/useCollection'
 import { Badge, Spinner, EmptyState } from '@/components/ui'
-import { PageHeader }      from '@/components/layout/PageHeader'
+import { PageHeader }    from '@/components/layout/PageHeader'
 import type { Cliente, Proyecto, Abono } from '@/types'
-import { cn }              from '@/lib/utils'
-import { format }          from 'date-fns'
-import { es }              from 'date-fns/locale'
-import type { Timestamp }  from 'firebase/firestore'
-import Link                from 'next/link'
+import { format }        from 'date-fns'
+import { es }            from 'date-fns/locale'
+import type { Timestamp } from 'firebase/firestore'
+import Link              from 'next/link'
 import {
-  ArrowLeft, Mail, Phone, Building2,
-  FolderKanban, CreditCard, User, ExternalLink,
+  ArrowLeft, Mail, Building2,
+  FolderKanban, CreditCard, ExternalLink,
 } from 'lucide-react'
 
 function toDate(ts: Timestamp | Date | undefined): Date {
@@ -22,22 +20,13 @@ function toDate(ts: Timestamp | Date | undefined): Date {
   return (ts as Timestamp).toDate()
 }
 
-const PROYECTO_BADGE: Record<string, 'teal' | 'warning' | 'default' | 'danger'> = {
-  activo:    'teal',
-  pausado:   'warning',
-  completado:'default',
-  cancelado: 'danger',
-}
-
-const ABONO_BADGE: Record<string, 'teal' | 'warning' | 'danger'> = {
-  activo:   'teal',
-  pausado:  'warning',
-  cancelado:'danger',
-}
-
-export default function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const { data: cliente, loading: lc } = useDocument<Cliente>('clientes', id)
+export default function ClienteDetailPage({
+  params,
+}: {
+  params: { id: string }
+}) {
+  const { id } = params
+  const { data: cliente,   loading: lc } = useDocument<Cliente>('clientes', id)
   const { data: proyectos, loading: lp } = useCollection<Proyecto>('proyectos', {
     filters: [{ field: 'clienteId', op: '==', value: id }],
   })
@@ -45,32 +34,21 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
     filters: [{ field: 'clienteId', op: '==', value: id }],
   })
 
-  const loading = lc || lp || la
+  if (lc || lp || la) return (
+    <div className="flex items-center justify-center min-h-screen"><Spinner size={24} /></div>
+  )
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spinner size={24} />
-      </div>
-    )
-  }
+  if (!cliente) return (
+    <div className="px-8 py-20">
+      <EmptyState title="Cliente no encontrado" description="El cliente puede haber sido eliminado." />
+    </div>
+  )
 
-  if (!cliente) {
-    return (
-      <div className="px-8 py-20">
-        <EmptyState title="Cliente no encontrado" description="El cliente puede haber sido eliminado." />
-      </div>
-    )
-  }
-
-  const mrr = abonos
-    .filter(a => a.estado === 'activo')
-    .reduce((acc, a) => {
-      if (a.periodicidad === 'mensual')    return acc + a.monto
-      if (a.periodicidad === 'trimestral') return acc + a.monto / 3
-      if (a.periodicidad === 'anual')      return acc + a.monto / 12
-      return acc
-    }, 0)
+  const mrr = abonos.filter(a => a.estado === 'activo').reduce((acc, a) => {
+    if (a.periodicidad === 'mensual')    return acc + a.monto
+    if (a.periodicidad === 'trimestral') return acc + a.monto / 3
+    return acc + a.monto / 12
+  }, 0)
 
   return (
     <div className="animate-fade-in">
@@ -83,10 +61,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
           </Link>
         }
       />
-
       <div className="px-8 pb-10 space-y-6">
-
-        {/* KPIs */}
         <div className="grid grid-cols-3 gap-4">
           <div className="flux-card text-center">
             <p className="text-2xs text-flux-text3 uppercase tracking-widest mb-1">Proyectos activos</p>
@@ -103,8 +78,6 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-          {/* Info + Contactos */}
           <div className="space-y-4">
             <div className="flux-card">
               <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-4">Información</h2>
@@ -115,22 +88,17 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                 </div>
                 {cliente.sector && (
                   <div className="flex items-center gap-2 text-sm text-flux-text2">
-                    <Building2 size={13} className="text-flux-text3 shrink-0" />
-                    {cliente.sector}
+                    <Building2 size={13} className="text-flux-text3 shrink-0" />{cliente.sector}
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <Badge variant={cliente.estado === 'activo' ? 'teal' : cliente.estado === 'churned' ? 'danger' : 'default'}>
-                    {cliente.estado}
-                  </Badge>
-                </div>
+                <Badge variant={cliente.estado === 'activo' ? 'teal' : cliente.estado === 'churned' ? 'danger' : 'default'}>
+                  {cliente.estado}
+                </Badge>
                 <p className="text-2xs text-flux-text3">
                   Cliente desde {format(toDate(cliente.creadoEn), "MMMM yyyy", { locale: es })}
                 </p>
               </div>
             </div>
-
-            {/* Contactos */}
             <div className="flux-card">
               <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest mb-4">
                 Contactos ({cliente.contactos?.length ?? 0})
@@ -157,10 +125,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* Proyectos + Abonos */}
           <div className="xl:col-span-2 space-y-4">
-
-            {/* Proyectos */}
             <div className="flux-card">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest flex items-center gap-2">
@@ -185,7 +150,7 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <Badge variant={PROYECTO_BADGE[p.estado]}>{p.estado}</Badge>
+                        <Badge variant={p.estado === 'activo' ? 'teal' : p.estado === 'completado' ? 'default' : 'warning'}>{p.estado}</Badge>
                         <p className="text-2xs text-flux-teal mt-1">€{p.presupuesto.toLocaleString('es-ES')}</p>
                       </div>
                     </Link>
@@ -193,8 +158,6 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               )}
             </div>
-
-            {/* Abonos */}
             <div className="flux-card">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs font-medium text-flux-text3 uppercase tracking-widest flex items-center gap-2">
@@ -212,10 +175,12 @@ export default function ClienteDetailPage({ params }: { params: Promise<{ id: st
                     <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-flux-surface border border-flux-border/50">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-flux-text1 truncate">{a.nombre}</p>
-                        <p className="text-2xs text-flux-text3 capitalize">{a.periodicidad} · próx. {format(toDate(a.fechaRenovacion), "d MMM yyyy", { locale: es })}</p>
+                        <p className="text-2xs text-flux-text3 capitalize">
+                          {a.periodicidad} · próx. {format(toDate(a.fechaRenovacion), "d MMM yyyy", { locale: es })}
+                        </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <Badge variant={ABONO_BADGE[a.estado]}>{a.estado}</Badge>
+                        <Badge variant={a.estado === 'activo' ? 'teal' : a.estado === 'cancelado' ? 'danger' : 'warning'}>{a.estado}</Badge>
                         <p className="text-2xs text-flux-teal mt-1">€{a.monto.toLocaleString('es-ES')}</p>
                       </div>
                     </div>

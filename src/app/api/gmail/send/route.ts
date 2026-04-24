@@ -1,18 +1,28 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { google }      from 'googleapis'
 import { db }          from '@/lib/firebase/config'
-import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
 async function getOAuthClient(uid: string) {
   const snap = await getDoc(doc(db, 'googleTokens', uid))
-  if (!snap.exists()) throw new Error('Google no conectado')
-
+  if (!snap.exists()) {
+    throw new Error('Google no conectado. Ve a Integraciones y conectá tu cuenta.')
+  }
+  const tokens = snap.data()
+  if (!tokens?.access_token) {
+    throw new Error('Token inválido. Reconectá Google en Integraciones.')
+  }
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     process.env.GOOGLE_REDIRECT_URI
   )
-  oauth2.setCredentials(snap.data())
+  oauth2.setCredentials({
+    access_token:  tokens.access_token,
+    refresh_token: tokens.refresh_token,
+    expiry_date:   tokens.expiry_date,
+    token_type:    tokens.token_type ?? 'Bearer',
+  })
   return oauth2
 }
 
@@ -26,12 +36,8 @@ function encodeEmail(to: string, from: string, subject: string, body: string) {
     '',
     body,
   ].join('\n')
-
-  return Buffer.from(message)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
+  return Buffer.from(message).toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 export async function POST(req: NextRequest) {
@@ -39,15 +45,15 @@ export async function POST(req: NextRequest) {
     const { uid, to, subject, body, leadId, clienteId, oportunidadId } = await req.json()
 
     if (!uid || !to || !subject || !body) {
-      return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
+      return NextResponse.json({ error: 'Faltan campos: uid, to, subject, body' }, { status: 400 })
     }
 
     const auth  = await getOAuthClient(uid)
     const gmail = google.gmail({ version: 'v1', auth })
 
-    const profile  = await gmail.users.getProfile({ userId: 'me' })
+    const profile   = await gmail.users.getProfile({ userId: 'me' })
     const fromEmail = profile.data.emailAddress ?? ''
-    const raw = encodeEmail(to, fromEmail, subject, body)
+    const raw       = encodeEmail(to, fromEmail, subject, body)
 
     const res = await gmail.users.messages.send({
       userId: 'me',
@@ -67,13 +73,13 @@ export async function POST(req: NextRequest) {
       actualizadoEn: serverTimestamp(),
     })
 
-    // Slack notification (optional, fire and forget)
+    // Slack — fire and forget
     if (process.env.SLACK_WEBHOOK_URL) {
       fetch(process.env.SLACK_WEBHOOK_URL, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: `📧 Email enviado a ${to} — ${subject}` }),
-      }).catch(console.error)
+      }).catch(() => {})
     }
 
     return NextResponse.json({ success: true, messageId: res.data.id })
