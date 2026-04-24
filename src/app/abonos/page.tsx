@@ -237,10 +237,10 @@ function AbonoRow({ abono, clienteNombre, onEdit, onDelete }: {
               className="text-flux-text3 hover:text-flux-text1 p-1 transition-colors">
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
-            <button onClick={onEdit} className="text-flux-text3 hover:text-flux-text1 p-1 opacity-0 group-hover:opacity-100 transition-all">
+            <button onClick={onEdit} className="text-flux-text3 hover:text-flux-text1 p-1 transition-all">
               <Pencil size={13} />
             </button>
-            <button onClick={onDelete} className="text-flux-text3 hover:text-flux-danger p-1 opacity-0 group-hover:opacity-100 transition-all">
+            <button onClick={onDelete} className="text-flux-text3 hover:text-flux-danger p-1 transition-all">
               <Trash2 size={13} />
             </button>
           </div>

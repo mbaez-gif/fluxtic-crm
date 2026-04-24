@@ -339,7 +339,7 @@ export default function DiagnosticosPage() {
                       <div className="relative" onClick={e => e.stopPropagation()}>
                         <button
                           onClick={() => setMenuId(menuId === diag.id ? null : diag.id)}
-                          className="text-flux-text3 hover:text-flux-text1 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded"
+                          className="text-flux-text2 hover:text-flux-white transition-colors p-1 rounded"
                         >
                           <MoreHorizontal size={14} />
                         </button>
@@ -400,7 +400,7 @@ export default function DiagnosticosPage() {
                       <span className="text-2xs text-flux-text3">
                         {format(toDate(diag.creadoEn), "d MMM yyyy", { locale: es })}
                       </span>
-                      <span className="text-2xs text-flux-teal opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-2xs text-flux-teal transition-opacity">
                         Ver detalle →
                       </span>
                     </div>

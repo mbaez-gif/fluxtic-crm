@@ -242,7 +242,7 @@ export default function ProyectosPage() {
                       <td className="px-4 py-3">
                         <div className="relative flex justify-end">
                           <button onClick={() => setMenuId(menuId === p.id ? null : p.id)}
-                            className="text-flux-text3 hover:text-flux-text1 opacity-0 group-hover:opacity-100 p-1 rounded">
+                            className="text-flux-text3 hover:text-flux-text1 p-1 rounded">
                             <MoreHorizontal size={15} />
                           </button>
                           {menuId === p.id && (

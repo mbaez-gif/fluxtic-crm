@@ -243,7 +243,7 @@ function OpoCard({
         <div className="relative shrink-0">
           <button
             onClick={() => setMenu(m => !m)}
-            className="text-flux-text3 hover:text-flux-text1 transition-colors opacity-0 group-hover:opacity-100 p-0.5 rounded"
+            className="text-flux-text3 hover:text-flux-text1 transition-colors p-0.5 rounded"
           >
             <MoreHorizontal size={14} />
           </button>

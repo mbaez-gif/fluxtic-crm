@@ -476,7 +476,7 @@ export default function PropuestasPage() {
                           <div className="relative flex justify-end">
                             <button
                               onClick={() => setMenuId(menuId === prop.id ? null : prop.id)}
-                              className="text-flux-text3 hover:text-flux-text1 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded"
+                              className="text-flux-text2 hover:text-flux-white transition-colors p-1 rounded"
                             >
                               <MoreHorizontal size={15} />
                             </button>

@@ -325,7 +325,7 @@ export default function ClientesPage() {
                     <div className="relative" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => setMenuId(menuId === cliente.id ? null : cliente.id)}
-                        className="text-flux-text3 hover:text-flux-text1 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded"
+                        className="text-flux-text2 hover:text-flux-white transition-colors p-1 rounded"
                       >
                         <MoreHorizontal size={14} />
                       </button>
@@ -374,7 +374,7 @@ export default function ClientesPage() {
                       <span className="text-2xs text-flux-text3">
                         {cliente.contactos?.length ?? 0} contacto{(cliente.contactos?.length ?? 0) !== 1 ? 's' : ''}
                       </span>
-                      <span className="text-2xs text-flux-teal opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <span className="text-2xs text-flux-teal transition-opacity flex items-center gap-1">
                         Ver ficha <ExternalLink size={10} />
                       </span>
                     </div>

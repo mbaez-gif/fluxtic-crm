@@ -184,7 +184,7 @@ function TareaCard({ tarea, proyectoNombre, onEdit, onDelete, onMove }: {
         </p>
         <div className="relative shrink-0">
           <button onClick={() => setMenu(m => !m)}
-            className="text-flux-text3 hover:text-flux-text1 p-0.5 opacity-0 group-hover:opacity-100 transition-all">
+            className="text-flux-text3 hover:text-flux-text1 p-0.5 transition-all">
             <MoreHorizontal size={13} />
           </button>
           {menu && (
