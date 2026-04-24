@@ -4,17 +4,9 @@ import { createDoc }            from '@/lib/firebase/firestore'
 import type { CalendarEvent, CalendarVinculadoTipo } from '@/types/integrations'
 import { Timestamp }            from 'firebase/firestore'
 
-// ── Create Calendar event ─────────────────────────────────
 export async function createCalendarEvent({
-  uid,
-  titulo,
-  descripcion,
-  fechaInicio,
-  fechaFin,
-  attendees,
-  vinculadoTipo,
-  vinculadoId,
-  addMeet = true,
+  uid, titulo, descripcion, fechaInicio, fechaFin,
+  attendees, vinculadoTipo, vinculadoId, addMeet = true,
 }: {
   uid:           string
   titulo:        string
@@ -31,8 +23,8 @@ export async function createCalendarEvent({
     const calendar = google.calendar({ version: 'v3', auth })
 
     const res = await calendar.events.insert({
-      calendarId:          'primary',
-      sendUpdates:         'all',
+      calendarId:            'primary',
+      sendUpdates:           'all',
       conferenceDataVersion: addMeet ? 1 : 0,
       requestBody: {
         summary:     titulo,
@@ -51,21 +43,21 @@ export async function createCalendarEvent({
       },
     })
 
-    const googleEventId = res.data.id ?? ''
-    const meetLink      = res.data.conferenceData?.entryPoints?.[0]?.uri ?? undefined
+    const googleEventId            = res.data.id ?? ''
+    const meetLink: string | undefined =
+      res.data.conferenceData?.entryPoints?.[0]?.uri ?? undefined
 
-    // Save to Firestore
     await createDoc<CalendarEvent>('calendarEvents', {
       googleEventId,
       titulo,
-      descripcion:    descripcion ?? '',
-      fechaInicio:    Timestamp.fromDate(fechaInicio),
-      fechaFin:       Timestamp.fromDate(fechaFin),
+      descripcion:   descripcion ?? '',
+      fechaInicio:   Timestamp.fromDate(fechaInicio),
+      fechaFin:      Timestamp.fromDate(fechaFin),
       vinculadoTipo,
       vinculadoId,
-      responsableId:  uid,
+      responsableId: uid,
       attendees,
-      meetLink:       meetLink ?? '',
+      meetLink:      meetLink ?? '',
     })
 
     return { success: true, eventId: googleEventId, meetLink }
@@ -75,24 +67,23 @@ export async function createCalendarEvent({
   }
 }
 
-// ── List upcoming events ──────────────────────────────────
 export async function getUpcomingEvents(
   uid:   string,
   days = 7
 ): Promise<Array<{
-  id:         string
-  titulo:     string
+  id:          string
+  titulo:      string
   fechaInicio: string
-  fechaFin:   string
-  attendees:  string[]
-  meetLink?:  string
+  fechaFin:    string
+  attendees:   string[]
+  meetLink?:   string
 }>> {
   try {
     const auth     = await getAuthenticatedClient(uid)
     const calendar = google.calendar({ version: 'v3', auth })
 
-    const now      = new Date()
-    const future   = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
+    const now    = new Date()
+    const future = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
 
     const res = await calendar.events.list({
       calendarId:   'primary',
@@ -109,7 +100,7 @@ export async function getUpcomingEvents(
       fechaInicio: e.start?.dateTime ?? e.start?.date ?? '',
       fechaFin:    e.end?.dateTime   ?? e.end?.date   ?? '',
       attendees:   (e.attendees ?? []).map(a => a.email ?? '').filter(Boolean),
-      meetLink:    e.conferenceData?.entryPoints?.[0]?.uri,
+      meetLink:    e.conferenceData?.entryPoints?.[0]?.uri ?? undefined,
     }))
   } catch {
     return []
