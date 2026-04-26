@@ -1,21 +1,20 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { useAuthContext }   from '@/components/auth/AuthProvider'
-import { useCollection }    from '@/lib/hooks/useCollection'
+import { useState }          from 'react'
+import { useAuthContext }    from '@/components/auth/AuthProvider'
+import { useCollection }     from '@/lib/hooks/useCollection'
 import { updateDocById, deleteDocById, createDoc } from '@/lib/firebase/firestore'
-import { PageHeader }       from '@/components/layout/PageHeader'
+import { PageHeader }        from '@/components/layout/PageHeader'
 import { Badge, EmptyState, Spinner } from '@/components/ui'
-import { LeadDrawer }       from '@/components/leads/LeadDrawer'
-import type { Lead }        from '@/types'
-import { cn }               from '@/lib/utils'
-import { format }           from 'date-fns'
-import { es }               from 'date-fns/locale'
-import type { Timestamp }   from 'firebase/firestore'
+import { LeadDrawer }        from '@/components/leads/LeadDrawer'
+import type { Lead }         from '@/types'
+import { cn }                from '@/lib/utils'
+import { format }            from 'date-fns'
+import { es }                from 'date-fns/locale'
+import type { Timestamp }    from 'firebase/firestore'
 import {
   Plus, Search, X, Users, MoreHorizontal,
-  Pencil, Trash2, Mail, MessageCircle,
-  Eye, UserCheck,
+  Pencil, Trash2, Mail, MessageCircle, Eye,
 } from 'lucide-react'
 
 function toDate(ts: Timestamp | Date | string | undefined): Date {
@@ -27,49 +26,23 @@ function toDate(ts: Timestamp | Date | string | undefined): Date {
 }
 
 const ESTADO_BADGE: Record<string, 'default' | 'teal' | 'info' | 'danger'> = {
-  nuevo:      'default',
-  contactado: 'info',
-  calificado: 'teal',
-  descartado: 'danger',
+  nuevo: 'default', contactado: 'info', calificado: 'teal', descartado: 'danger',
 }
-
 const ESTADO_LABEL: Record<string, string> = {
-  nuevo:      'Nuevo',
-  contactado: 'Contactado',
-  calificado: 'Calificado',
-  descartado: 'Descartado',
+  nuevo: 'Nuevo', contactado: 'Contactado', calificado: 'Calificado', descartado: 'Descartado',
 }
 
-interface LeadFormData {
-  nombre:        string
-  empresa:       string
-  email:         string
-  telefono:      string
-  fuente:        string
-  estado:        string
-  responsableId: string
-  notas:         string
-}
-
-const emptyForm: LeadFormData = {
-  nombre: '', empresa: '', email: '', telefono: '',
-  fuente: 'manual', estado: 'nuevo', responsableId: '', notas: '',
-}
-
-function LeadModal({ lead, onClose, onSave }: {
-  lead?: Lead; onClose: () => void; onSave: () => void
-}) {
+function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
   const { profile } = useAuthContext()
-  const [form, setForm] = useState<LeadFormData>(lead ? {
-    nombre:        lead.nombre,
-    empresa:       lead.empresa,
-    email:         lead.email,
-    telefono:      lead.telefono ?? '',
-    fuente:        lead.fuente,
-    estado:        lead.estado,
-    responsableId: lead.responsableId ?? '',
-    notas:         lead.notas ?? '',
-  } : emptyForm)
+  const [form, setForm] = useState({
+    nombre:   lead?.nombre   ?? '',
+    empresa:  lead?.empresa  ?? '',
+    email:    lead?.email    ?? '',
+    telefono: lead?.telefono ?? '',
+    fuente:   lead?.fuente   ?? 'manual',
+    estado:   lead?.estado   ?? 'nuevo',
+    notas:    lead?.notas    ?? '',
+  })
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -81,7 +54,6 @@ function LeadModal({ lead, onClose, onSave }: {
       } else {
         await createDoc('leads', { ...form, responsableId: profile?.uid ?? '' })
       }
-      onSave()
       onClose()
     } finally { setSaving(false) }
   }
@@ -111,7 +83,7 @@ function LeadModal({ lead, onClose, onSave }: {
           <div>
             <label className="block text-xs font-medium text-flux-text2 mb-1">Fuente</label>
             <select className="flux-input" value={form.fuente} onChange={e => setForm(f => ({ ...f, fuente: e.target.value }))}>
-              {['manual', 'web', 'referido', 'redes', 'chat_bot', 'import'].map(f => (
+              {['manual','web','referido','redes','chat_bot','import'].map(f => (
                 <option key={f} value={f}>{f}</option>
               ))}
             </select>
@@ -124,7 +96,8 @@ function LeadModal({ lead, onClose, onSave }: {
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-medium text-flux-text2 mb-1">Notas</label>
-            <textarea rows={3} className="flux-input resize-none text-sm" value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
+            <textarea rows={3} className="flux-input resize-none text-sm" value={form.notas}
+              onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
@@ -139,31 +112,39 @@ function LeadModal({ lead, onClose, onSave }: {
 }
 
 export default function LeadsPage() {
-  const { data: leads, loading, refresh } = useCollection<Lead>('leads')
+  // useCollection uses real-time Firestore snapshot — no refresh needed
+  const { data: leads, loading } = useCollection<Lead>('leads')
 
-  const [search,    setSearch]    = useState('')
-  const [filtEst,   setFiltEst]   = useState('todos')
-  const [modal,     setModal]     = useState<'new' | Lead | null>(null)
-  const [drawer,    setDrawer]    = useState<Lead | null>(null)
-  const [menuId,    setMenuId]    = useState<string | null>(null)
+  const [search,  setSearch]  = useState('')
+  const [filtEst, setFiltEst] = useState('todos')
+  const [modal,   setModal]   = useState<'new' | Lead | null>(null)
+  const [drawer,  setDrawer]  = useState<Lead | null>(null)
+  const [menuId,  setMenuId]  = useState<string | null>(null)
 
-  const filtered = leads.filter(l => {
-    const q = search.toLowerCase()
-    const matchSearch = !search || [l.nombre, l.empresa, l.email].some(f => f?.toLowerCase().includes(q))
-    const matchEst    = filtEst === 'todos' || l.estado === filtEst
-    return matchSearch && matchEst
-  }).sort((a, b) => toDate(b.creadoEn).getTime() - toDate(a.creadoEn).getTime())
+  const filtered = leads
+    .filter(l => {
+      const q = search.toLowerCase()
+      const matchSearch = !search || [l.nombre, l.empresa, l.email].some(f => f?.toLowerCase().includes(q))
+      const matchEst    = filtEst === 'todos' || l.estado === filtEst
+      return matchSearch && matchEst
+    })
+    .sort((a, b) => toDate(b.creadoEn).getTime() - toDate(a.creadoEn).getTime())
 
   async function handleDelete(id: string) {
     if (!confirm('¿Eliminar este lead?')) return
     await deleteDocById('leads', id)
     setMenuId(null)
-    refresh()
   }
 
-  const whatsappUrl = (lead: Lead) => lead.telefono
-    ? `https://wa.me/${lead.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${lead.nombre.split(' ')[0]}, te contactamos desde Fluxtic.`)}`
-    : null
+  function waUrl(lead: Lead) {
+    if (!lead.telefono) return null
+    const num = lead.telefono.replace(/\D/g, '')
+    const msg = encodeURIComponent(`Hola ${lead.nombre.split(' ')[0]}, te contactamos desde Fluxtic.`)
+    return `https://wa.me/${num}?text=${msg}`
+  }
+
+  // When drawer lead updates via real-time, keep it in sync
+  const drawerLead = drawer ? leads.find(l => l.id === drawer.id) ?? drawer : null
 
   return (
     <>
@@ -179,14 +160,15 @@ export default function LeadsPage() {
         />
 
         <div className="px-8 pb-10 space-y-5">
-          {/* Filters */}
+          {/* Filtros */}
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-flux-text3" />
               <input className="flux-input pl-9 text-sm" placeholder="Buscar nombre, empresa o email…"
                 value={search} onChange={e => setSearch(e.target.value)} />
               {search && (
-                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-flux-text3 hover:text-flux-text1">
+                <button onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-flux-text3 hover:text-flux-text1">
                   <X size={12} />
                 </button>
               )}
@@ -207,13 +189,18 @@ export default function LeadsPage() {
           ) : filtered.length === 0 ? (
             <EmptyState icon={<Users size={40} />} title="Sin leads"
               description="Los leads del formulario web aparecen acá automáticamente."
-              action={<button onClick={() => setModal('new')} className="btn-primary flex items-center gap-2"><Plus size={14} /> Nuevo lead</button>} />
+              action={
+                <button onClick={() => setModal('new')} className="btn-primary flex items-center gap-2">
+                  <Plus size={14} /> Nuevo lead
+                </button>
+              }
+            />
           ) : (
             <div className="flux-card p-0 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-flux-border">
-                    {['Nombre / Empresa', 'Contacto', 'Fuente', 'Estado', 'Creado', ''].map(h => (
+                    {['Nombre / Empresa', 'Contactar', 'Fuente', 'Estado', 'Creado', ''].map(h => (
                       <th key={h} className="text-left text-2xs font-medium text-flux-text3 uppercase tracking-widest px-4 py-3">{h}</th>
                     ))}
                   </tr>
@@ -223,41 +210,44 @@ export default function LeadsPage() {
                     <tr key={lead.id} className="border-b border-flux-border/50 hover:bg-flux-muted/20 transition-colors">
                       <td className="px-4 py-3">
                         <button onClick={() => setDrawer(lead)} className="text-left group">
-                          <p className="font-medium text-flux-text1 group-hover:text-flux-teal transition-colors">{lead.nombre}</p>
+                          <p className="font-medium text-flux-text1 group-hover:text-flux-teal transition-colors">
+                            {lead.nombre}
+                          </p>
                           <p className="text-2xs text-flux-text3">{lead.empresa}</p>
                         </button>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                           {lead.email && (
-                            <a href={`https://mail.google.com/mail/?view=cm&to=${lead.email}`}
-                              target="_blank" rel="noopener noreferrer"
-                              title={lead.email}
+                            <a href={`https://mail.google.com/mail/?view=cm&to=${lead.email}&su=Fluxtic - Te contactamos`}
+                              target="_blank" rel="noopener noreferrer" title={lead.email}
                               className="p-1.5 rounded-lg hover:bg-blue-950/40 text-flux-text3 hover:text-blue-400 transition-colors">
                               <Mail size={13} />
                             </a>
                           )}
-                          {whatsappUrl(lead) && (
-                            <a href={whatsappUrl(lead)!} target="_blank" rel="noopener noreferrer"
-                              title={lead.telefono}
+                          {waUrl(lead) && (
+                            <a href={waUrl(lead)!} target="_blank" rel="noopener noreferrer" title={lead.telefono}
                               className="p-1.5 rounded-lg hover:bg-green-950/40 text-flux-text3 hover:text-green-400 transition-colors">
                               <MessageCircle size={13} />
                             </a>
                           )}
-                          <span className="text-2xs text-flux-text3 ml-1">{lead.email}</span>
+                          {lead.email && (
+                            <span className="text-2xs text-flux-text3 ml-1 hidden md:inline">{lead.email}</span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-flux-text3 capitalize">{lead.fuente}</td>
                       <td className="px-4 py-3">
-                        <Badge variant={ESTADO_BADGE[lead.estado]}>{ESTADO_LABEL[lead.estado]}</Badge>
+                        <Badge variant={ESTADO_BADGE[lead.estado]}>
+                          {ESTADO_LABEL[lead.estado] ?? lead.estado}
+                        </Badge>
                       </td>
-                      <td className="px-4 py-3 text-2xs text-flux-text3">
+                      <td className="px-4 py-3 text-2xs text-flux-text3 whitespace-nowrap">
                         {format(toDate(lead.creadoEn), "d MMM yy", { locale: es })}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="relative flex items-center gap-1">
-                          <button onClick={() => setDrawer(lead)}
-                            title="Ver ficha"
+                        <div className="relative flex items-center gap-0.5">
+                          <button onClick={() => setDrawer(lead)} title="Ver ficha"
                             className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-teal hover:bg-flux-tealGlow/20 transition-colors">
                             <Eye size={14} />
                           </button>
@@ -295,17 +285,16 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Modal nuevo/editar */}
       {modal !== null && (
-        <LeadModal lead={modal === 'new' ? undefined : modal}
-          onClose={() => setModal(null)} onSave={refresh} />
+        <LeadModal lead={modal === 'new' ? undefined : modal} onClose={() => setModal(null)} />
       )}
 
-      {/* Drawer ficha */}
-      {drawer && (
-        <LeadDrawer lead={drawer} onClose={() => setDrawer(null)}
-          onEdit={() => { setModal(drawer); setDrawer(null) }}
-          onRefresh={refresh} />
+      {drawerLead && (
+        <LeadDrawer
+          lead={drawerLead}
+          onClose={() => setDrawer(null)}
+          onEdit={() => { setModal(drawerLead); setDrawer(null) }}
+        />
       )}
     </>
   )

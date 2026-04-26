@@ -1,20 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter }        from 'next/navigation'
-import { useAuthContext }   from '@/components/auth/AuthProvider'
-import { db }               from '@/lib/firebase/config'
+import { useState }          from 'react'
+import { useRouter }         from 'next/navigation'
+import { useAuthContext }    from '@/components/auth/AuthProvider'
+import { db }                from '@/lib/firebase/config'
 import { addDoc, updateDoc, doc, collection, serverTimestamp } from 'firebase/firestore'
-import { cn }               from '@/lib/utils'
-import { format }           from 'date-fns'
-import { es }               from 'date-fns/locale'
-import type { Lead }        from '@/types'
-import type { Timestamp }   from 'firebase/firestore'
+import { cn }                from '@/lib/utils'
+import { format }            from 'date-fns'
+import { es }                from 'date-fns/locale'
+import type { Lead }         from '@/types'
+import type { Timestamp }    from 'firebase/firestore'
 import {
-  X, Mail, Phone, Building2, User, Tag,
-  MessageCircle, ExternalLink, CheckCircle,
-  ArrowRight, Pencil, FileText, Stethoscope,
-  TrendingUp, Calendar,
+  X, Mail, Phone, Building2, Tag, Calendar,
+  MessageCircle, CheckCircle, ArrowRight,
+  Pencil, Stethoscope, TrendingUp,
 } from 'lucide-react'
 
 function toDate(ts: Timestamp | Date | string | undefined): Date {
@@ -36,40 +35,43 @@ interface Props {
   lead:    Lead
   onClose: () => void
   onEdit:  () => void
-  onRefresh: () => void
 }
 
-export function LeadDrawer({ lead, onClose, onEdit, onRefresh }: Props) {
+export function LeadDrawer({ lead, onClose, onEdit }: Props) {
   const { user, profile } = useAuthContext()
-  const router  = useRouter()
+  const router      = useRouter()
   const [converting, setConverting] = useState(false)
   const [converted,  setConverted]  = useState(false)
   const [updatingEstado, setUpdatingEstado] = useState(false)
 
-  // WhatsApp link
-  const whatsappUrl = lead.telefono
+  const waUrl = lead.telefono
     ? `https://wa.me/${lead.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(
         `Hola ${lead.nombre.split(' ')[0]}, te contactamos desde Fluxtic. ¿Tenés un momento para conversar?`
       )}`
     : null
 
-  // Gmail compose link
   const gmailUrl = lead.email
-    ? `https://mail.google.com/mail/?view=cm&to=${lead.email}&su=Fluxtic - Te contactamos&body=Hola ${lead.nombre.split(' ')[0]},%0D%0A%0D%0AQueríamos contactarte desde Fluxtic para conocer más sobre ${lead.empresa} y ver cómo podemos ayudarte.%0D%0A%0D%0ASaludos,`
+    ? `https://mail.google.com/mail/?view=cm&to=${lead.email}&su=Fluxtic - Te contactamos&body=Hola ${lead.nombre.split(' ')[0]},%0D%0A%0D%0AQueríamos contactarte desde Fluxtic.%0D%0A%0D%0ASaludos,`
     : null
+
+  async function handleCambiarEstado(estado: string) {
+    setUpdatingEstado(true)
+    try {
+      await updateDoc(doc(db, 'leads', lead.id), { estado, actualizadoEn: serverTimestamp() })
+    } finally { setUpdatingEstado(false) }
+  }
 
   async function handleConvertirACliente() {
     if (!user || !profile) return
-    if (!confirm(`¿Convertir a ${lead.nombre} en cliente? Se creará una ficha de cliente con sus datos.`)) return
+    if (!confirm(`¿Convertir a ${lead.nombre} en cliente?`)) return
     setConverting(true)
     try {
-      // Create client
       await addDoc(collection(db, 'clientes'), {
         nombre:   lead.nombre,
         empresa:  lead.empresa,
         email:    lead.email,
         telefono: lead.telefono ?? '',
-        sector:   lead.fuente ?? '',
+        sector:   '',
         estado:   'activo',
         contactos: [{
           nombre:   lead.nombre,
@@ -82,38 +84,19 @@ export function LeadDrawer({ lead, onClose, onEdit, onRefresh }: Props) {
         creadoEn:      serverTimestamp(),
         actualizadoEn: serverTimestamp(),
       })
-
-      // Update lead status to calificado
       await updateDoc(doc(db, 'leads', lead.id), {
         estado:        'calificado',
         actualizadoEn: serverTimestamp(),
       })
-
       setConverted(true)
-      onRefresh()
-      setTimeout(() => router.push('/clientes'), 1500)
-    } finally {
-      setConverting(false)
-    }
-  }
-
-  async function handleCambiarEstado(estado: string) {
-    setUpdatingEstado(true)
-    try {
-      await updateDoc(doc(db, 'leads', lead.id), {
-        estado,
-        actualizadoEn: serverTimestamp(),
-      })
-      onRefresh()
-    } finally {
-      setUpdatingEstado(false)
-    }
+      setTimeout(() => { onClose(); router.push('/clientes') }, 1500)
+    } finally { setConverting(false) }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-flux-card border-l border-flux-border flex flex-col h-full overflow-y-auto animate-slide-in shadow-card-hover">
+      <div className="relative w-full max-w-md bg-flux-card border-l border-flux-border flex flex-col h-full overflow-y-auto shadow-card-hover">
 
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-flux-border shrink-0">
@@ -126,7 +109,7 @@ export function LeadDrawer({ lead, onClose, onEdit, onRefresh }: Props) {
               <p className="text-xs text-flux-text3">{lead.empresa}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button onClick={onEdit}
               className="text-flux-text3 hover:text-flux-text1 p-2 rounded-lg hover:bg-flux-muted transition-colors">
               <Pencil size={15} />
@@ -138,7 +121,7 @@ export function LeadDrawer({ lead, onClose, onEdit, onRefresh }: Props) {
           </div>
         </div>
 
-        <div className="flex-1 px-6 py-5 space-y-6">
+        <div className="flex-1 px-6 py-5 space-y-6 overflow-y-auto">
 
           {/* Estado */}
           <div>
@@ -208,37 +191,42 @@ export function LeadDrawer({ lead, onClose, onEdit, onRefresh }: Props) {
             </div>
           </div>
 
-          {/* Contactar */}
+          {/* Botones de contacto */}
           <div>
             <p className="text-2xs font-medium text-flux-text3 uppercase tracking-widest mb-3">Contactar</p>
             <div className="grid grid-cols-2 gap-2">
-              {gmailUrl && (
+              {gmailUrl ? (
                 <a href={gmailUrl} target="_blank" rel="noopener noreferrer"
                   className="flex flex-col items-center gap-2 px-4 py-4 bg-flux-surface border border-flux-border rounded-xl hover:border-blue-500/50 hover:bg-blue-950/20 transition-all group">
                   <Mail size={20} className="text-blue-400" />
                   <span className="text-xs font-medium text-flux-text2 group-hover:text-blue-300">Email</span>
                 </a>
+              ) : (
+                <div className="flex flex-col items-center gap-2 px-4 py-4 bg-flux-surface border border-flux-border rounded-xl opacity-40">
+                  <Mail size={20} className="text-flux-text3" />
+                  <span className="text-xs text-flux-text3">Sin email</span>
+                </div>
               )}
-              {whatsappUrl && (
-                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
+              {waUrl ? (
+                <a href={waUrl} target="_blank" rel="noopener noreferrer"
                   className="flex flex-col items-center gap-2 px-4 py-4 bg-flux-surface border border-flux-border rounded-xl hover:border-green-500/50 hover:bg-green-950/20 transition-all group">
                   <MessageCircle size={20} className="text-green-400" />
                   <span className="text-xs font-medium text-flux-text2 group-hover:text-green-300">WhatsApp</span>
                 </a>
-              )}
-              {!gmailUrl && !whatsappUrl && (
-                <p className="col-span-2 text-xs text-flux-text3 text-center py-2">
-                  Sin datos de contacto cargados
-                </p>
+              ) : (
+                <div className="flex flex-col items-center gap-2 px-4 py-4 bg-flux-surface border border-flux-border rounded-xl opacity-40">
+                  <MessageCircle size={20} className="text-flux-text3" />
+                  <span className="text-xs text-flux-text3">Sin teléfono</span>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Acciones del CRM */}
+          {/* Acciones CRM */}
           <div>
             <p className="text-2xs font-medium text-flux-text3 uppercase tracking-widest mb-3">Acciones CRM</p>
             <div className="space-y-2">
-              <button onClick={() => router.push('/diagnosticos')}
+              <button onClick={() => { onClose(); router.push('/diagnosticos') }}
                 className="w-full flex items-center gap-3 px-4 py-3 bg-flux-surface border border-flux-border rounded-xl hover:border-flux-teal/30 hover:bg-flux-tealGlow/10 transition-all text-left group">
                 <Stethoscope size={16} className="text-flux-teal shrink-0" />
                 <div>
@@ -247,7 +235,7 @@ export function LeadDrawer({ lead, onClose, onEdit, onRefresh }: Props) {
                 </div>
                 <ArrowRight size={14} className="text-flux-text3 ml-auto" />
               </button>
-              <button onClick={() => router.push('/oportunidades')}
+              <button onClick={() => { onClose(); router.push('/oportunidades') }}
                 className="w-full flex items-center gap-3 px-4 py-3 bg-flux-surface border border-flux-border rounded-xl hover:border-flux-teal/30 hover:bg-flux-tealGlow/10 transition-all text-left group">
                 <TrendingUp size={16} className="text-flux-teal shrink-0" />
                 <div>
@@ -263,34 +251,31 @@ export function LeadDrawer({ lead, onClose, onEdit, onRefresh }: Props) {
           {lead.notas && (
             <div>
               <p className="text-2xs font-medium text-flux-text3 uppercase tracking-widest mb-2">Notas</p>
-              <div className="px-4 py-3 bg-flux-surface border border-flux-border rounded-xl">
+              <div className="px-4 py-3 bg-flux-surface border border-flux-border rounded-xl max-h-48 overflow-y-auto">
                 <p className="text-sm text-flux-text2 whitespace-pre-wrap leading-relaxed">{lead.notas}</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer — Convertir a cliente */}
+        {/* Footer */}
         <div className="px-6 py-4 border-t border-flux-border shrink-0">
           {converted ? (
             <div className="flex items-center justify-center gap-2 px-4 py-3 bg-flux-tealGlow border border-flux-teal/30 rounded-xl">
               <CheckCircle size={16} className="text-flux-teal" />
-              <span className="text-sm font-medium text-flux-teal">¡Convertido a cliente! Redirigiendo…</span>
+              <span className="text-sm font-medium text-flux-teal">¡Convertido! Redirigiendo a Clientes…</span>
             </div>
           ) : lead.estado !== 'descartado' ? (
-            <button
-              onClick={handleConvertirACliente}
-              disabled={converting}
-              className="w-full btn-primary flex items-center justify-center gap-2 py-3"
-            >
-              {converting ? (
-                <div className="w-4 h-4 border-2 border-flux-bg border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <CheckCircle size={16} />
-              )}
+            <button onClick={handleConvertirACliente} disabled={converting}
+              className="w-full btn-primary flex items-center justify-center gap-2 py-3">
+              {converting
+                ? <div className="w-4 h-4 border-2 border-flux-bg border-t-transparent rounded-full animate-spin" />
+                : <CheckCircle size={16} />}
               Convertir en cliente
             </button>
-          ) : null}
+          ) : (
+            <p className="text-center text-xs text-flux-text3">Lead descartado — reactivalo para convertirlo</p>
+          )}
         </div>
       </div>
     </div>
