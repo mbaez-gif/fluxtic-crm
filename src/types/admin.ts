@@ -10,8 +10,8 @@ export interface Socio {
 
 export const SOCIOS: Socio[] = [
   { uid: '1YqXa1MbfBP6VLGGmAaIy22PqDJ2', nombre: 'Martín',   email: 'mbaez@fluxtic.com',    color: '#00D4A8' },
-  { uid: 'FACUNDO_UID',                   nombre: 'Facundo',  email: 'facundo@fluxtic.com',  color: '#60A5FA' },
-  { uid: 'SANTIAGO_UID',                  nombre: 'Santiago', email: 'santiago@fluxtic.com', color: '#F59E0B' },
+  { uid: 'qP41h2M8uiRLyVLU0OWB1EfgmIE3',                   nombre: 'Facundo',  email: 'facundo@fluxtic.com',  color: '#60A5FA' },
+  { uid: 'DQ9Hd7KriqYD04BSTGExppcyWzC3',                  nombre: 'Santiago', email: 'santiago@fluxtic.com', color: '#F59E0B' },
 ]
 
 // ── Gasto — Estados ───────────────────────────────────────
