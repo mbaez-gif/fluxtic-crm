@@ -11,6 +11,7 @@ import {
   FileText, Building2, FolderKanban, CreditCard,
   CheckSquare, LogOut, Zap, Plug, Calculator,
   TrendingDown, Store, Tag, Wallet, Lock,
+  MessageCircle, HardDrive,
 } from 'lucide-react'
 
 const CRM_NAV = [
@@ -23,6 +24,7 @@ const CRM_NAV = [
   { href: '/proyectos',     label: 'Proyectos',      icon: FolderKanban    },
   { href: '/abonos',        label: 'Abonos',         icon: CreditCard      },
   { href: '/tareas',        label: 'Tareas',         icon: CheckSquare     },
+  { href: '/whatsapp',      label: 'WhatsApp',       icon: MessageCircle   },
   { href: '/integraciones', label: 'Integraciones',  icon: Plug            },
 ]
 
@@ -57,7 +59,6 @@ export function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
   const { profile } = useAuthContext()
-
   const isAdmin  = pathname.startsWith('/admin')
 
   async function handleSignOut() {
@@ -94,7 +95,7 @@ export function Sidebar() {
         {!isAdmin ? (
           CRM_NAV.map(({ href, label, icon }) => (
             <NavItem key={href} href={href} label={label} icon={icon}
-              active={pathname === href || pathname.startsWith(href + '/')} />
+              active={pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'))} />
           ))
         ) : (
           <>
