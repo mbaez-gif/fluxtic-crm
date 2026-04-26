@@ -1,37 +1,44 @@
 'use client'
 
-import { useRequireAuth } from '@/components/auth/AuthProvider'
-import { Sidebar }        from '@/components/layout/Sidebar'
-import { AuthProvider }   from '@/components/auth/AuthProvider'
+import { useState, useEffect } from 'react'
+import { Sidebar }      from '@/components/layout/Sidebar'
+import { SplashScreen } from '@/components/ui/SplashScreen'
 
-function AppShellInner({ children }: { children: React.ReactNode }) {
-  const { loading } = useRequireAuth()
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-flux-bg">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 rounded-full border-2 border-flux-teal border-t-transparent animate-spin" />
-          <p className="text-xs text-flux-text3">Cargando Fluxtic…</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex min-h-screen bg-flux-bg">
-      <Sidebar />
-      <main className="flex-1 min-h-screen overflow-y-auto">
-        {children}
-      </main>
-    </div>
-  )
+interface Props {
+  children: React.ReactNode
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+const SPLASH_KEY = 'fluxtic_splash_shown'
+
+export function AppShell({ children }: Props) {
+  const [showSplash, setShowSplash] = useState(false)
+  const [mounted,    setMounted]    = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    // Show splash only once per session
+    const shown = sessionStorage.getItem(SPLASH_KEY)
+    if (!shown) {
+      setShowSplash(true)
+      sessionStorage.setItem(SPLASH_KEY, '1')
+    }
+  }, [])
+
+  function handleSplashDone() {
+    setShowSplash(false)
+  }
+
+  if (!mounted) return null
+
   return (
-    <AuthProvider>
-      <AppShellInner>{children}</AppShellInner>
-    </AuthProvider>
+    <>
+      {showSplash && <SplashScreen onDone={handleSplashDone} />}
+      <div className="flex min-h-screen bg-flux-bg">
+        <Sidebar />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
+    </>
   )
 }
