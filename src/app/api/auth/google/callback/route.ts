@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { type NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 
@@ -18,15 +20,15 @@ export async function GET(req: NextRequest) {
     )
     const { tokens } = await oauth2.getToken(code)
 
-    // Pass tokens to client via save-token page
+    // En vez de guardar en Firestore desde el servidor (requiere Admin SDK),
+    // pasamos los tokens al cliente via URL para que los guarde con su sesión Auth
     const params = new URLSearchParams({
       google_connected: '1',
       uid,
-      access_token:  tokens.access_token  ?? '',
-      refresh_token: tokens.refresh_token ?? '',
-      expiry_date:   String(tokens.expiry_date ?? ''),
-      token_type:    tokens.token_type    ?? 'Bearer',
-      scope:         tokens.scope         ?? '',
+      access_token:     tokens.access_token  ?? '',
+      refresh_token:    tokens.refresh_token ?? '',
+      expiry_date:      String(tokens.expiry_date ?? ''),
+      token_type:       tokens.token_type    ?? 'Bearer',
     })
 
     return NextResponse.redirect(
