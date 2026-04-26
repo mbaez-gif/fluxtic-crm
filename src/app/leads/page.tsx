@@ -90,7 +90,7 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
           </div>
           <div>
             <label className="block text-xs font-medium text-flux-text2 mb-1">Estado</label>
-            <select className="flux-input" value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
+            <select className="flux-input" value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value as Lead['estado'] }))}>
               {Object.entries(ESTADO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
