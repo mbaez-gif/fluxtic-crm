@@ -1,39 +1,115 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase/config'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+
+const FIREBASE_PROJECT = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+const FIREBASE_API_KEY  = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
 
 export async function POST(req: NextRequest) {
   try {
-    const { vendorName, vendorTaxId, documentNumber, totalAmount, currency, documentDate } = await req.json()
+    const {
+      vendorName, vendorTaxId, documentNumber,
+      totalAmount, currency,
+    } = await req.json()
+
+    if (!FIREBASE_PROJECT || !FIREBASE_API_KEY) {
+      return NextResponse.json({ hasDuplicates: false, suspects: [] })
+    }
 
     const suspects: any[] = []
 
-    // Search by vendor tax ID + document number (strongest match)
-    if (vendorTaxId && documentNumber) {
-      const q = query(collection(db, 'adminGastos'),
-        where('proveedorTaxId', '==', vendorTaxId))
-      const snap = await getDocs(q)
-      snap.docs.forEach(d => {
-        const data = d.data()
-        if (data.documentNumber === documentNumber) {
-          suspects.push({ id: d.id, ...data, matchReason: 'CUIT + Nº comprobante' })
-        }
+    // Search by CUIT if available
+    if (vendorTaxId) {
+      const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents:runQuery?key=${FIREBASE_API_KEY}`
+      const res = await fetch(url, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          structuredQuery: {
+            from:  [{ collectionId: 'adminGastos' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'proveedorTaxId' },
+                op:    'EQUAL',
+                value: { stringValue: vendorTaxId },
+              },
+            },
+            limit: 5,
+          },
+        }),
       })
+
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        data.forEach((item: any) => {
+          if (!item.document) return
+          const fields = item.document.fields ?? {}
+          const docNum  = fields.documentNumber?.stringValue
+          const amount  = parseFloat(fields.importe?.integerValue ?? '0')
+
+          if (docNum && docNum === documentNumber) {
+            suspects.push({
+              id:           item.document.name?.split('/').pop(),
+              proveedorNombre: fields.proveedorNombre?.stringValue ?? vendorName,
+              importe:      amount,
+              matchReason: 'CUIT + Nº comprobante',
+            })
+          }
+        })
+      }
     }
 
-    // Search by vendor name + amount + date
+    // Search by vendor name + amount if no CUIT match
     if (suspects.length === 0 && vendorName && totalAmount) {
-      const snap = await getDocs(collection(db, 'adminGastos'))
-      snap.docs.forEach(d => {
-        const data = d.data()
-        const sameName   = data.proveedorNombre?.toLowerCase().includes(vendorName.toLowerCase().slice(0, 6))
-        const sameAmount = Math.abs(data.importe - totalAmount) < 0.01
-        const sameCurr   = !currency || data.moneda === currency
-
-        if (sameName && sameAmount && sameCurr) {
-          suspects.push({ id: d.id, ...data, matchReason: 'Proveedor + importe' })
-        }
+      const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents:runQuery?key=${FIREBASE_API_KEY}`
+      const res = await fetch(url, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          structuredQuery: {
+            from:  [{ collectionId: 'adminGastos' }],
+            where: {
+              compositeFilter: {
+                op: 'AND',
+                filters: [
+                  {
+                    fieldFilter: {
+                      field: { fieldPath: 'importe' },
+                      op:    'EQUAL',
+                      value: { integerValue: String(Math.floor(totalAmount)) },
+                    },
+                  },
+                  ...(currency ? [{
+                    fieldFilter: {
+                      field: { fieldPath: 'moneda' },
+                      op:    'EQUAL',
+                      value: { stringValue: currency },
+                    },
+                  }] : []),
+                ],
+              },
+            },
+            limit: 5,
+          },
+        }),
       })
+
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        data.forEach((item: any) => {
+          if (!item.document) return
+          const fields      = item.document.fields ?? {}
+          const provNombre  = fields.proveedorNombre?.stringValue ?? ''
+          const shortSearch = vendorName.toLowerCase().slice(0, 6)
+
+          if (provNombre.toLowerCase().includes(shortSearch)) {
+            suspects.push({
+              id:              item.document.name?.split('/').pop(),
+              proveedorNombre: provNombre,
+              importe:         parseFloat(fields.importe?.integerValue ?? '0'),
+              matchReason:     'Proveedor + importe',
+            })
+          }
+        })
+      }
     }
 
     return NextResponse.json({
