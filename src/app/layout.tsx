@@ -1,21 +1,24 @@
+export const dynamic = 'force-dynamic'
+
 import type { Metadata } from 'next'
-import '@/styles/globals.css'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { AuthProvider } from '@/components/auth/AuthProvider'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title:       'Fluxtic CRM',
-  description: 'Plataforma de gestión comercial para Fluxtic',
-  icons: { icon: '/favicon.ico' },
+  description: 'CRM a medida para Fluxtic',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body className="bg-flux-bg text-flux-text1 font-sans antialiased">
-        {children}
+    <html lang="es">
+      <body className={inter.className}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )
