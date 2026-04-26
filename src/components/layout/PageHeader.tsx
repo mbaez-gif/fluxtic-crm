@@ -1,27 +1,21 @@
-import { type ReactNode } from 'react'
-
-interface PageHeaderProps {
-  title:       string
-  subtitle?:   string
-  actions?:    ReactNode
+interface Props {
+  title:    string
+  subtitle?: string
+  actions?: React.ReactNode
 }
 
-export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions }: Props) {
   return (
-    <header className="flex items-start justify-between px-8 pt-8 pb-6">
-      <div>
-        <h1 className="font-display text-xl font-bold text-flux-white tracking-tight">
-          {title}
-        </h1>
-        {subtitle && (
-          <p className="mt-1 text-sm text-flux-text3">{subtitle}</p>
-        )}
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/5">
+      <div className="min-w-0">
+        <h1 className="font-display font-bold text-lg md:text-xl text-flux-white truncate">{title}</h1>
+        {subtitle && <p className="text-xs text-flux-text3 mt-0.5">{subtitle}</p>}
       </div>
       {actions && (
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           {actions}
         </div>
       )}
-    </header>
+    </div>
   )
 }

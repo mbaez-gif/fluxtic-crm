@@ -37,25 +37,30 @@ const ADMIN_NAV = [
   { href: '/admin/cierre',       label: 'Cierre mensual', icon: Lock            },
 ]
 
-function NavItem({ href, label, icon: Icon, active }: {
-  href: string; label: string; icon: any; active: boolean
+interface Props {
+  onNavigate?: () => void
+}
+
+function NavItem({ href, label, icon: Icon, active, onClick }: {
+  href: string; label: string; icon: any; active: boolean; onClick?: () => void
 }) {
   return (
-    <Link href={href} className={cn(
-      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150',
+    <Link href={href} onClick={onClick} className={cn(
+      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150',
       active
-        ? 'bg-[rgba(0,176,255,0.12)] text-[#00b0ff] font-medium'
+        ? 'font-medium'
         : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-    )}>
+    )}
+    style={active ? { background: 'rgba(0,176,255,0.12)', color: '#00b0ff' } : {}}>
       <Icon size={16} strokeWidth={active ? 2 : 1.75}
-        className={active ? 'text-[#00b0ff]' : 'text-slate-500'} />
+        style={{ color: active ? '#00b0ff' : undefined }} />
       {label}
-      {active && <span className="ml-auto w-1 h-1 rounded-full bg-[#00b0ff]" />}
+      {active && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#00b0ff' }} />}
     </Link>
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: Props) {
   const pathname = usePathname()
   const router   = useRouter()
   const { profile } = useAuthContext()
@@ -67,62 +72,48 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="flex flex-col w-56 min-h-screen bg-[#080d18] border-r border-white/5 shrink-0">
+    <div className="flex flex-col h-full w-full" style={{ background: '#080d18' }}>
 
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-white/5">
-        <img
-          src="/fluxtic-logo.jpg"
-          alt="Fluxtic"
-          className="rounded-lg object-contain bg-white"
-          style={{ width: 32, height: 32, padding: 3 }}
-        />
+      {/* Logo — only shown on desktop (mobile has it in AppShell topbar) */}
+      <div className="hidden md:flex items-center gap-3 px-4 h-16 border-b border-white/5">
+        <img src="/fluxtic-logo.jpg" alt="Fluxtic" className="rounded-lg"
+          style={{ width: 32, height: 32, objectFit: 'contain', background: 'white', padding: 3 }} />
         <div>
           <p className="font-black tracking-[0.15em] uppercase text-sm text-slate-100">
             FLU<span style={{ color: '#00b0ff' }}>X</span>TIC
           </p>
-          <p className="text-2xs text-slate-500 tracking-widest uppercase" style={{ fontSize: 8 }}>
-            CRM
-          </p>
+          <p className="text-slate-500 tracking-widest uppercase" style={{ fontSize: 8 }}>CRM</p>
         </div>
       </div>
 
       {/* Mode toggle */}
       <div className="flex p-2 gap-1 border-b border-white/5">
-        <Link href="/dashboard"
-          className={cn(
-            'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all',
-            !isAdmin
-              ? 'text-[#060910] font-bold'
-              : 'text-slate-400 hover:text-slate-200'
-          )}
+        <Link href="/dashboard" onClick={onNavigate}
+          className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all',
+            !isAdmin ? 'text-[#060910] font-bold' : 'text-slate-400 hover:text-slate-200')}
           style={!isAdmin ? { background: 'linear-gradient(135deg, #00b0ff, #0077cc)' } : {}}>
           <FolderKanban size={12} /> CRM
         </Link>
-        <Link href="/admin"
-          className={cn(
-            'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all',
-            isAdmin
-              ? 'text-[#060910] font-bold'
-              : 'text-slate-400 hover:text-slate-200'
-          )}
+        <Link href="/admin" onClick={onNavigate}
+          className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all',
+            isAdmin ? 'text-[#060910] font-bold' : 'text-slate-400 hover:text-slate-200')}
           style={isAdmin ? { background: 'linear-gradient(135deg, #00b0ff, #0077cc)' } : {}}>
           <Calculator size={12} /> Admin
         </Link>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
+      {/* Nav */}
+      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
         {!isAdmin ? (
           CRM_NAV.map(({ href, label, icon }) => (
-            <NavItem key={href} href={href} label={label} icon={icon}
+            <NavItem key={href} href={href} label={label} icon={icon} onClick={onNavigate}
               active={pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'))} />
           ))
         ) : (
           <>
-            <p className="text-2xs font-medium text-slate-500 uppercase tracking-widest px-3 pb-1">Admin</p>
+            <p className="text-2xs font-medium text-slate-500 uppercase tracking-widest px-3 pb-1 pt-1">Admin</p>
             {ADMIN_NAV.map(({ href, label, icon }) => (
-              <NavItem key={href} href={href} label={label} icon={icon}
+              <NavItem key={href} href={href} label={label} icon={icon} onClick={onNavigate}
                 active={pathname === href || (href !== '/admin' && pathname.startsWith(href + '/'))} />
             ))}
           </>
@@ -132,8 +123,7 @@ export function Sidebar() {
       {/* User */}
       <div className="border-t border-white/5 p-3">
         <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-2xs font-bold shrink-0"
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
             style={{ background: 'linear-gradient(135deg, #00b0ff, #0077cc)', color: '#060910' }}>
             {profile?.nombre?.charAt(0).toUpperCase() ?? '?'}
           </div>
@@ -147,6 +137,6 @@ export function Sidebar() {
           </button>
         </div>
       </div>
-    </aside>
+    </div>
   )
 }
