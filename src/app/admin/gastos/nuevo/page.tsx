@@ -1,65 +1,64 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter }          from 'next/navigation'
-import { useAuthContext }     from '@/components/auth/AuthProvider'
-import { PageHeader }         from '@/components/layout/PageHeader'
-import { Spinner }            from '@/components/ui'
-import { db }                 from '@/lib/firebase/config'
-import { collection, getDocs } from 'firebase/firestore'
+import { useRouter }           from 'next/navigation'
+import { useAuthContext }      from '@/components/auth/AuthProvider'
+import { PageHeader }          from '@/components/layout/PageHeader'
+import { Spinner }             from '@/components/ui'
 import {
-  createGasto, getPeriodoActual, logAudit, getCategorias,
-  getMediosPago, searchProveedores,
+  createGasto, getPeriodoActual, logAudit,
+  getCategorias, getMediosPago, searchProveedores,
+  seedCategorias,
 } from '@/lib/firebase/admin'
 import type {
-  Gasto, GastoTipo, GastoEstado, Moneda,
+  GastoTipo, GastoEstado, Moneda,
   Categoria, MedioPago, Proveedor, DistribucionSocio,
 } from '@/types/admin'
 import {
-  SOCIOS, GASTO_TIPO_LABEL, MEDIO_PAGO_TIPO_LABEL, CATEGORIAS_INICIALES,
+  SOCIOS, GASTO_TIPO_LABEL, CATEGORIAS_INICIALES,
 } from '@/types/admin'
-import { cn } from '@/lib/utils'
-import { format } from 'date-fns'
+import { cn }      from '@/lib/utils'
+import { format }  from 'date-fns'
 import { Timestamp } from 'firebase/firestore'
-import { ArrowLeft, Save, Users, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Save, Users, AlertCircle, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export default function NuevoGastoPage() {
   const router = useRouter()
   const { user, profile } = useAuthContext()
 
-  const [saving,      setSaving]      = useState(false)
-  const [categorias,  setCategorias]  = useState<Categoria[]>([])
-  const [medios,      setMedios]      = useState<MedioPago[]>([])
-  const [provSearch,  setProvSearch]  = useState('')
-  const [provSuggs,   setProvSuggs]   = useState<Proveedor[]>([])
+  const [saving,     setSaving]     = useState(false)
+  const [saved,      setSaved]      = useState(false)
+  const [errorMsg,   setErrorMsg]   = useState('')
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [medios,     setMedios]     = useState<MedioPago[]>([])
+  const [provSearch, setProvSearch] = useState('')
+  const [provSuggs,  setProvSuggs]  = useState<Proveedor[]>([])
+  const [loadingCats, setLoadingCats] = useState(true)
 
-  // Form state
   const [form, setForm] = useState({
-    fecha:          format(new Date(), 'yyyy-MM-dd'),
-    periodo:        getPeriodoActual(),
-    proveedorId:    '',
-    proveedorNombre: '',
-    descripcion:    '',
-    categoriaId:    '',
-    categoriaNombre: '',
-    tipo:           'operating' as GastoTipo,
-    importe:        '',
-    moneda:         'ARS' as Moneda,
-    tipoCambio:     '',
-    medioPagoId:    '',
-    medioPagoNombre: '',
-    pagadoPorUid:   user?.uid ?? '',
-    pagadoPorNombre: profile?.nombre ?? '',
-    estado:         'paid' as GastoEstado,
-    clienteId:      '',
-    clienteNombre:  '',
-    proyectoId:     '',
-    proyectoNombre: '',
-    esReintegrable: false,
+    fecha:               format(new Date(), 'yyyy-MM-dd'),
+    periodo:             getPeriodoActual(),
+    proveedorId:         '',
+    proveedorNombre:     '',
+    descripcion:         '',
+    categoriaId:         '',
+    categoriaNombre:     '',
+    tipo:                'operating' as GastoTipo,
+    importe:             '',
+    moneda:              'ARS' as Moneda,
+    tipoCambio:          '',
+    medioPagoId:         '',
+    medioPagoNombre:     '',
+    pagadoPorUid:        '',
+    pagadoPorNombre:     '',
+    estado:              'paid' as GastoEstado,
+    clienteNombre:       '',
+    proyectoNombre:      '',
     distribuirEntreSocios: true,
-    notas:          '',
-    tags:           '',
+    esReintegrable:      false,
+    notas:               '',
+    tags:                '',
   })
 
   const [distribucion, setDistribucion] = useState<DistribucionSocio[]>(
@@ -73,8 +72,25 @@ export default function NuevoGastoPage() {
     }))
   )
 
+  // Load categorias — auto-seed if empty
   useEffect(() => {
-    getCategorias().then(setCategorias)
+    async function load() {
+      setLoadingCats(true)
+      try {
+        let cats = await getCategorias()
+        if (cats.length === 0) {
+          // First time — seed default categories
+          await seedCategorias(CATEGORIAS_INICIALES)
+          cats = await getCategorias()
+        }
+        setCategorias(cats)
+      } catch (err) {
+        console.error('Error loading categorias:', err)
+      } finally {
+        setLoadingCats(false)
+      }
+    }
+    load()
     getMediosPago().then(setMedios)
   }, [])
 
@@ -87,7 +103,7 @@ export default function NuevoGastoPage() {
     }))
   }, [user, profile])
 
-  // Recalculate distribution amounts when importe changes
+  // Recalculate distribution
   useEffect(() => {
     const monto = parseFloat(form.importe) || 0
     setDistribucion(prev => prev.map(d => ({
@@ -100,34 +116,23 @@ export default function NuevoGastoPage() {
   function updatePorcentaje(uid: string, pct: number) {
     const monto = parseFloat(form.importe) || 0
     setDistribucion(prev => prev.map(d =>
-      d.uid === uid
-        ? { ...d, porcentaje: pct, monto: (monto * pct) / 100 }
-        : d
+      d.uid === uid ? { ...d, porcentaje: pct, monto: (monto * pct) / 100 } : d
     ))
-  }
-
-  function setPagadoPor(uid: string) {
-    const socio = SOCIOS.find(s => s.uid === uid)
-    if (!socio) return
-    setForm(f => ({ ...f, pagadoPorUid: uid, pagadoPorNombre: socio.nombre }))
   }
 
   function setCategoria(id: string) {
     const cat = categorias.find(c => c.id === id)
-    setForm(f => ({
-      ...f,
-      categoriaId:    id,
-      categoriaNombre: cat?.nombre ?? '',
-    }))
+    setForm(f => ({ ...f, categoriaId: id, categoriaNombre: cat?.nombre ?? '' }))
   }
 
   function setMedioPago(id: string) {
     const m = medios.find(mp => mp.id === id)
-    setForm(f => ({
-      ...f,
-      medioPagoId:    id,
-      medioPagoNombre: m?.nombre ?? '',
-    }))
+    setForm(f => ({ ...f, medioPagoId: id, medioPagoNombre: m?.nombre ?? '' }))
+  }
+
+  function setPagadoPor(uid: string) {
+    const socio = SOCIOS.find(s => s.uid === uid)
+    if (socio) setForm(f => ({ ...f, pagadoPorUid: uid, pagadoPorNombre: socio.nombre }))
   }
 
   async function handleSearchProv(term: string) {
@@ -146,10 +151,10 @@ export default function NuevoGastoPage() {
       ...f,
       proveedorId:     p.id,
       proveedorNombre: p.nombre,
-      categoriaId:     p.categoriaPorDefectoId ?? f.categoriaId,
+      categoriaId:     p.categoriaPorDefectoId    ?? f.categoriaId,
       categoriaNombre: p.categoriaPorDefectoNombre ?? f.categoriaNombre,
-      tipo:            p.tipoPorDefecto ?? f.tipo,
-      moneda:          p.monedaPorDefecto ?? f.moneda,
+      tipo:            p.tipoPorDefecto            ?? f.tipo,
+      moneda:          p.monedaPorDefecto          ?? f.moneda,
     }))
     setProvSearch(p.nombre)
     setProvSuggs([])
@@ -157,73 +162,86 @@ export default function NuevoGastoPage() {
 
   async function handleSubmit() {
     if (!user || !profile) return
-    if (!form.proveedorNombre || !form.descripcion || !form.importe || !form.categoriaNombre) {
-      alert('Completá los campos obligatorios: proveedor, descripción, importe y categoría.')
+    setErrorMsg('')
+
+    // Validate — category is optional if no categories exist yet
+    const missing = []
+    if (!form.proveedorNombre.trim()) missing.push('proveedor')
+    if (!form.descripcion.trim())     missing.push('descripción')
+    if (!form.importe)                missing.push('importe')
+
+    if (missing.length > 0) {
+      setErrorMsg(`Completá los campos obligatorios: ${missing.join(', ')}`)
       return
+    }
+
+    const monto = parseFloat(form.importe)
+    if (isNaN(monto) || monto <= 0) {
+      setErrorMsg('El importe debe ser un número mayor a 0')
+      return
+    }
+
+    if (form.distribuirEntreSocios) {
+      const totalDist = distribucion.reduce((a, d) => a + d.porcentaje, 0)
+      if (Math.abs(totalDist - 100) > 0.5) {
+        setErrorMsg(`Los porcentajes suman ${totalDist.toFixed(1)}% — deben sumar 100%`)
+        return
+      }
     }
 
     setSaving(true)
     try {
-      const monto = parseFloat(form.importe)
-      const tc    = form.tipoCambio ? parseFloat(form.tipoCambio) : undefined
+      const tc         = form.tipoCambio ? parseFloat(form.tipoCambio) : undefined
       const importeARS = form.moneda !== 'ARS' && tc ? monto * tc : undefined
 
-      const gastoData = {
-        fecha:          Timestamp.fromDate(new Date(form.fecha)),
-        periodo:        form.periodo,
-        descripcion:    form.descripcion,
-        tipo:           form.tipo,
-        fuente:         'manual' as const,
-        importe:        monto,
-        moneda:         form.moneda,
+      await createGasto({
+        fecha:           Timestamp.fromDate(new Date(form.fecha + 'T12:00:00')),
+        periodo:         form.periodo,
+        descripcion:     form.descripcion.trim(),
+        tipo:            form.tipo,
+        fuente:          'manual',
+        importe:         monto,
+        moneda:          form.moneda,
         ...(tc          && { tipoCambio: tc }),
         ...(importeARS  && { importeARS }),
-        proveedorId:    form.proveedorId || undefined,
-        proveedorNombre: form.proveedorNombre,
-        categoriaId:    form.categoriaId || undefined,
-        categoriaNombre: form.categoriaNombre,
-        cargadoPorUid:   user.uid,
+        proveedorId:     form.proveedorId   || undefined,
+        proveedorNombre: form.proveedorNombre.trim(),
+        categoriaId:     form.categoriaId   || undefined,
+        categoriaNombre: form.categoriaNombre || 'Sin categoría',
+        cargadoPorUid:    user.uid,
         cargadoPorNombre: profile.nombre,
         cargadoPorEmail:  user.email ?? '',
-        pagadoPorUid:    form.pagadoPorUid,
-        pagadoPorNombre: form.pagadoPorNombre,
-        medioPagoId:     form.medioPagoId || undefined,
+        pagadoPorUid:    form.pagadoPorUid   || user.uid,
+        pagadoPorNombre: form.pagadoPorNombre || profile.nombre,
+        medioPagoId:     form.medioPagoId    || undefined,
         medioPagoNombre: form.medioPagoNombre || undefined,
-        clienteId:       form.clienteId || undefined,
-        clienteNombre:   form.clienteNombre || undefined,
-        proyectoId:      form.proyectoId || undefined,
+        clienteNombre:   form.clienteNombre  || undefined,
         proyectoNombre:  form.proyectoNombre || undefined,
         tieneComprobante: false,
         distribuirEntreSocios: form.distribuirEntreSocios,
         distribucion:    form.distribuirEntreSocios ? distribucion : undefined,
         estado:          form.estado,
-        approvalStatus:  'not_required' as const,
+        approvalStatus:  'not_required',
         esReintegrable:  form.esReintegrable,
         esRecurrente:    false,
         incluidoEnCierre: false,
         informadoPorMail: false,
-        notas:           form.notas || undefined,
-        tags:            form.tags ? form.tags.split(',').map(t => t.trim()) : undefined,
-      }
-
-      const id = await createGasto(gastoData)
-      await logAudit({
-        entidadTipo:   'gasto',
-        entidadId:     id,
-        accion:        'created',
-        usuarioUid:    user.uid,
-        usuarioNombre: profile.nombre,
-        notas:         `Gasto manual: ${form.proveedorNombre} — $${monto}`,
+        notas:           form.notas   || undefined,
+        tags:            form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
       })
 
-      router.push('/admin/gastos')
+      setSaved(true)
+      setTimeout(() => router.push('/admin/gastos'), 1200)
+    } catch (err) {
+      console.error('Error saving gasto:', err)
+      setErrorMsg('Error al guardar. Revisá la consola del navegador.')
     } finally {
       setSaving(false)
     }
   }
 
   const totalDist = distribucion.reduce((a, d) => a + d.porcentaje, 0)
-  const distOk    = Math.abs(totalDist - 100) < 0.1
+  const distOk    = Math.abs(totalDist - 100) < 0.5
 
   return (
     <div className="animate-fade-in">
@@ -235,16 +253,25 @@ export default function NuevoGastoPage() {
             <Link href="/admin/gastos" className="btn-ghost flex items-center gap-2 text-sm">
               <ArrowLeft size={14} /> Volver
             </Link>
-            <button onClick={handleSubmit} disabled={saving}
+            <button onClick={handleSubmit} disabled={saving || saved}
               className="btn-primary flex items-center gap-2 text-sm">
-              {saving ? <Spinner size={14} /> : <Save size={14} />}
-              Guardar gasto
+              {saved   ? <><CheckCircle size={14} /> ¡Guardado!</> :
+               saving  ? <><Spinner size={14} /> Guardando…</> :
+               <><Save size={14} /> Guardar gasto</>}
             </button>
           </div>
         }
       />
 
-      <div className="px-8 pb-10 max-w-3xl space-y-6">
+      <div className="px-4 md:px-8 pb-10 max-w-3xl space-y-6 pt-2">
+
+        {/* Error message */}
+        {errorMsg && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm text-red-300"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <AlertCircle size={15} className="shrink-0" /> {errorMsg}
+          </div>
+        )}
 
         {/* Datos principales */}
         <div className="flux-card space-y-4">
@@ -252,20 +279,20 @@ export default function NuevoGastoPage() {
             Datos del gasto
           </h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-flux-text2 mb-1.5">Fecha *</label>
               <input type="date" className="flux-input"
                 value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-flux-text2 mb-1.5">Período imputado *</label>
+              <label className="block text-xs font-medium text-flux-text2 mb-1.5">Período *</label>
               <input type="month" className="flux-input"
                 value={form.periodo} onChange={e => setForm(f => ({ ...f, periodo: e.target.value }))} />
             </div>
           </div>
 
-          {/* Proveedor con autocomplete */}
+          {/* Proveedor */}
           <div className="relative">
             <label className="block text-xs font-medium text-flux-text2 mb-1.5">Proveedor *</label>
             <input className="flux-input" placeholder="Buscar o escribir proveedor…"
@@ -290,12 +317,15 @@ export default function NuevoGastoPage() {
               value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-flux-text2 mb-1.5">Categoría *</label>
+              <label className="block text-xs font-medium text-flux-text2 mb-1.5">
+                Categoría {loadingCats ? <span className="text-flux-text3">(cargando…)</span> : ''}
+              </label>
               <select className="flux-input" value={form.categoriaId}
-                onChange={e => setCategoria(e.target.value)}>
-                <option value="">Seleccioná categoría…</option>
+                onChange={e => setCategoria(e.target.value)}
+                disabled={loadingCats}>
+                <option value="">Sin categoría</option>
                 {categorias.map(c => (
                   <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
@@ -315,10 +345,8 @@ export default function NuevoGastoPage() {
 
         {/* Montos */}
         <div className="flux-card space-y-4">
-          <h2 className="text-sm font-medium text-flux-text1 border-b border-flux-border pb-3">
-            Montos
-          </h2>
-          <div className="grid grid-cols-3 gap-4">
+          <h2 className="text-sm font-medium text-flux-text1 border-b border-flux-border pb-3">Montos</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-flux-text2 mb-1.5">Importe *</label>
               <input type="number" min="0" step="0.01" className="flux-input"
@@ -336,9 +364,7 @@ export default function NuevoGastoPage() {
             </div>
             {form.moneda !== 'ARS' && (
               <div>
-                <label className="block text-xs font-medium text-flux-text2 mb-1.5">
-                  Tipo de cambio (a ARS)
-                </label>
+                <label className="block text-xs font-medium text-flux-text2 mb-1.5">Tipo de cambio</label>
                 <input type="number" min="0" step="0.01" className="flux-input"
                   placeholder="1300" value={form.tipoCambio}
                   onChange={e => setForm(f => ({ ...f, tipoCambio: e.target.value }))} />
@@ -352,24 +378,20 @@ export default function NuevoGastoPage() {
           )}
         </div>
 
-        {/* Quién pagó */}
+        {/* Pagador */}
         <div className="flux-card space-y-4">
           <h2 className="text-sm font-medium text-flux-text1 border-b border-flux-border pb-3">
             Pagador y medio de pago
           </h2>
           <div>
-            <label className="block text-xs font-medium text-flux-text2 mb-2">
-              ¿Quién pagó? * <span className="text-flux-text3 font-normal">(no confundir con quién cargó el gasto)</span>
-            </label>
+            <label className="block text-xs font-medium text-flux-text2 mb-2">¿Quién pagó?</label>
             <div className="flex gap-2">
-              {SOCIOS.map(s => (
+              {SOCIOS.filter(s => !s.uid.includes('_UID')).map(s => (
                 <button key={s.uid} onClick={() => setPagadoPor(s.uid)}
-                  className={cn(
-                    'flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border transition-all',
+                  className={cn('flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border transition-all',
                     form.pagadoPorUid === s.uid
                       ? 'border-flux-teal bg-flux-tealGlow'
-                      : 'border-flux-border hover:border-flux-muted'
-                  )}>
+                      : 'border-flux-border hover:border-flux-muted')}>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-flux-bg"
                     style={{ backgroundColor: s.color }}>
                     {s.nombre.charAt(0)}
@@ -381,13 +403,9 @@ export default function NuevoGastoPage() {
                 </button>
               ))}
             </div>
-            <p className="text-2xs text-flux-text3 mt-2">
-              Cargado por: <span className="text-flux-text2">{profile?.nombre ?? '—'}</span>
-              {' '}(automático, no editable)
-            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-flux-text2 mb-1.5">Medio de pago</label>
               <select className="flux-input" value={form.medioPagoId}
@@ -399,7 +417,7 @@ export default function NuevoGastoPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-flux-text2 mb-1.5">Estado del gasto</label>
+              <label className="block text-xs font-medium text-flux-text2 mb-1.5">Estado</label>
               <select className="flux-input" value={form.estado}
                 onChange={e => setForm(f => ({ ...f, estado: e.target.value as GastoEstado }))}>
                 <option value="paid">Pagado</option>
@@ -411,14 +429,14 @@ export default function NuevoGastoPage() {
           </div>
         </div>
 
-        {/* Distribución entre socios */}
+        {/* Distribución */}
         <div className="flux-card space-y-4">
           <div className="flex items-center justify-between border-b border-flux-border pb-3">
             <h2 className="text-sm font-medium text-flux-text1 flex items-center gap-2">
               <Users size={14} className="text-flux-text3" /> Distribución entre socios
             </h2>
             <label className="flex items-center gap-2 cursor-pointer">
-              <span className="text-xs text-flux-text3">Dividir entre socios</span>
+              <span className="text-xs text-flux-text3">Dividir</span>
               <button
                 onClick={() => setForm(f => ({ ...f, distribuirEntreSocios: !f.distribuirEntreSocios }))}
                 className={cn('w-9 h-5 rounded-full transition-all relative',
@@ -432,7 +450,7 @@ export default function NuevoGastoPage() {
           {form.distribuirEntreSocios && (
             <>
               <div className="space-y-3">
-                {distribucion.map((d, i) => {
+                {distribucion.map(d => {
                   const socio = SOCIOS.find(s => s.uid === d.uid)
                   return (
                     <div key={d.uid} className="flex items-center gap-4">
@@ -459,14 +477,13 @@ export default function NuevoGastoPage() {
               {!distOk && (
                 <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-950/30 border border-amber-800/30 rounded-lg px-3 py-2">
                   <AlertCircle size={12} />
-                  Los porcentajes suman {totalDist.toFixed(1)}% — deben sumar exactamente 100%
+                  Suman {totalDist.toFixed(1)}% — deben ser 100%
                 </div>
               )}
 
               <button
                 onClick={() => setDistribucion(prev => prev.map(d => ({
-                  ...d,
-                  porcentaje: 33.33,
+                  ...d, porcentaje: 33.33,
                   monto: (parseFloat(form.importe) || 0) * 0.3333,
                 })))}
                 className="btn-ghost text-xs py-1.5">
@@ -481,7 +498,7 @@ export default function NuevoGastoPage() {
           <h2 className="text-sm font-medium text-flux-text1 border-b border-flux-border pb-3">
             Datos opcionales
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-flux-text2 mb-1.5">Cliente asociado</label>
               <input className="flux-input" placeholder="Nombre del cliente"
@@ -519,11 +536,13 @@ export default function NuevoGastoPage() {
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 pb-4">
           <Link href="/admin/gastos" className="btn-ghost">Cancelar</Link>
-          <button onClick={handleSubmit} disabled={saving}
-            className="btn-primary flex items-center gap-2">
-            {saving ? <><Spinner size={14} /> Guardando…</> : <><Save size={14} /> Guardar gasto</>}
+          <button onClick={handleSubmit} disabled={saving || saved}
+            className="btn-primary flex items-center gap-2 min-w-[140px] justify-center">
+            {saved   ? <><CheckCircle size={14} /> ¡Guardado!</> :
+             saving  ? <><Spinner size={14} /> Guardando…</> :
+             <><Save size={14} /> Guardar gasto</>}
           </button>
         </div>
       </div>
