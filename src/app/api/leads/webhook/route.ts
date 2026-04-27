@@ -2,74 +2,46 @@ export const dynamic = 'force-dynamic'
 
 import { type NextRequest, NextResponse } from 'next/server'
 
-// Use Firebase REST API directly — no Auth session needed with API key
 const FIREBASE_PROJECT = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
 const FIREBASE_API_KEY  = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+const SLACK_WEBHOOK    = process.env.SLACK_WEBHOOK_URL
 
-async function saveToFirestore(collection: string, data: Record<string, unknown>) {
-  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/${collection}?key=${FIREBASE_API_KEY}`
+const BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents`
 
-  // Convert data to Firestore REST format
-  function toFirestoreValue(val: unknown): unknown {
-    if (val === null || val === undefined) return { nullValue: null }
-    if (typeof val === 'string')  return { stringValue: val }
-    if (typeof val === 'number')  return { integerValue: String(val) }
-    if (typeof val === 'boolean') return { booleanValue: val }
-    if (val instanceof Date)      return { timestampValue: val.toISOString() }
-    if (typeof val === 'object')  return { mapValue: { fields: Object.fromEntries(Object.entries(val as Record<string, unknown>).map(([k, v]) => [k, toFirestoreValue(v)])) } }
-    return { stringValue: String(val) }
-  }
-
-  const fields: Record<string, unknown> = {}
-  for (const [key, val] of Object.entries(data)) {
-    fields[key] = toFirestoreValue(val)
-  }
-
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ fields }),
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Firestore error: ${err}`)
-  }
-
-  return res.json()
+function toFSValue(val: unknown): unknown {
+  if (val === null || val === undefined) return { nullValue: null }
+  if (typeof val === 'string')  return { stringValue: val }
+  if (typeof val === 'number')  return { integerValue: String(val) }
+  if (typeof val === 'boolean') return { booleanValue: val }
+  return { stringValue: String(val) }
 }
 
-async function sendSlack(message: string) {
-  if (!process.env.SLACK_WEBHOOK_URL) return
-  await fetch(process.env.SLACK_WEBHOOK_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ text: message }),
-  }).catch(() => {})
-}
-
-// Rate limiting
-const rateMap = new Map<string, { count: number; ts: number }>()
-function isRateLimited(ip: string): boolean {
-  const now   = Date.now()
-  const entry = rateMap.get(ip)
-  if (!entry || now - entry.ts > 60_000) { rateMap.set(ip, { count: 1, ts: now }); return false }
-  if (entry.count >= 5) return true
-  entry.count++; return false
+async function generateLeadId(): Promise<string> {
+  try {
+    const counterUrl = `${BASE}/_counters/leads?key=${FIREBASE_API_KEY}`
+    const res = await fetch(counterUrl)
+    const current = res.ok
+      ? parseInt((await res.json()).fields?.count?.integerValue ?? '0')
+      : 0
+    const next = current + 1
+    await fetch(counterUrl, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { count: { integerValue: String(next) } } }),
+    })
+    return `LEAD-${String(next).padStart(4, '0')}`
+  } catch {
+    return `LEAD-${Date.now().toString().slice(-6)}`
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for') ?? 'unknown'
-  if (isRateLimited(ip)) {
-    return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
-  }
-
   try {
     const body = await req.json()
     const { nombre, empresa, email, telefono, interes, origen, mensaje } = body
 
-    if (!nombre?.trim() || !email?.trim() || !empresa?.trim()) {
-      return NextResponse.json({ error: 'nombre, empresa y email son obligatorios' }, { status: 400 })
+    if (!nombre?.trim() || !email?.trim()) {
+      return NextResponse.json({ error: 'nombre y email son obligatorios' }, { status: 400 })
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -77,53 +49,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
     }
 
-    const now   = new Date().toISOString()
+    // Generate unique ID
+    const leadId = await generateLeadId()
+
     const notas = [
-      interes  ? `Interés: ${interes}`   : '',
-      origen   ? `Origen: ${origen}`     : '',
-      mensaje  ? `Mensaje: ${mensaje}`   : '',
+      interes ? `Interés: ${interes}` : '',
+      origen  ? `Origen: ${origen}`  : '',
+      mensaje ? `Mensaje: ${mensaje}` : '',
     ].filter(Boolean).join('\n')
 
-    // 1 — Create lead
-    await saveToFirestore('leads', {
-      nombre:        nombre.trim(),
-      empresa:       empresa.trim(),
-      email:         email.trim().toLowerCase(),
-      telefono:      telefono?.trim() ?? '',
-      fuente:        'web',
-      estado:        'nuevo',
-      responsableId: '',
-      notas,
-      creadoEn:      now,
-      actualizadoEn: now,
-    })
+    const now    = new Date().toISOString()
+    const fields = {
+      leadId:        { stringValue: leadId },
+      nombre:        { stringValue: nombre.trim() },
+      empresa:       { stringValue: empresa?.trim() ?? '' },
+      email:         { stringValue: email.trim().toLowerCase() },
+      telefono:      { stringValue: telefono?.trim() ?? '' },
+      fuente:        { stringValue: 'web' },
+      estado:        { stringValue: 'nuevo' },
+      notas:         { stringValue: notas },
+      responsableId: { stringValue: '' },
+      creadoEn:      { timestampValue: now },
+      actualizadoEn: { timestampValue: now },
+    }
 
-    // 2 — Send Slack notification
-    await sendSlack(
-      `🟢 *Nuevo lead desde formulario web*\n` +
-      `*Nombre:* ${nombre.trim()}\n` +
-      `*Empresa:* ${empresa.trim()}\n` +
-      `*Email:* ${email.trim()}\n` +
-      `*Teléfono:* ${telefono?.trim() || '-'}\n` +
-      `*Interés:* ${interes || '-'}\n` +
-      `*Mensaje:* ${mensaje || '-'}\n` +
-      `👉 Ver en CRM: https://fluxtic-crm.vercel.app/leads`
+    const res = await fetch(
+      `${BASE}/leads?key=${FIREBASE_API_KEY}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) }
     )
 
-    return NextResponse.json({ success: true, message: 'Lead creado correctamente' })
+    if (!res.ok) {
+      const err = await res.json()
+      return NextResponse.json({ error: err.error?.message ?? 'Error Firestore' }, { status: 500 })
+    }
+
+    // Slack notification
+    if (SLACK_WEBHOOK) {
+      fetch(SLACK_WEBHOOK, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: `🆕 *[${leadId}]* Nuevo lead: *${nombre.trim()}* (${empresa?.trim() ?? '-'})\n📧 ${email}\n📍 ${origen ?? 'web'}`,
+        }),
+      }).catch(() => {})
+    }
+
+    return NextResponse.json({ success: true, leadId })
   } catch (err) {
-    console.error('Lead webhook error:', err)
+    console.error('Webhook error:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
-}
-
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin':  '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
-  })
 }
