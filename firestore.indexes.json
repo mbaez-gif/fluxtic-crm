@@ -1,56 +1,20 @@
 {
   "indexes": [
     {
-      "collectionGroup": "oportunidades",
+      "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "responsableId", "order": "ASCENDING" },
-        { "fieldPath": "etapa",         "order": "ASCENDING" },
-        { "fieldPath": "creadoEn",      "order": "DESCENDING" }
+        { "fieldPath": "destinatarioUid", "order": "ASCENDING"  },
+        { "fieldPath": "archivada",       "order": "ASCENDING"  },
+        { "fieldPath": "creadoEn",        "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "tareas",
+      "collectionGroup": "adminGastos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "responsableId", "order": "ASCENDING" },
-        { "fieldPath": "estado",        "order": "ASCENDING" },
-        { "fieldPath": "fechaLimite",   "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "tareas",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "estado",      "order": "ASCENDING" },
-        { "fieldPath": "fechaLimite", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "abonos",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clienteId",       "order": "ASCENDING" },
-        { "fieldPath": "estado",          "order": "ASCENDING" },
-        { "fieldPath": "fechaRenovacion", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "proyectos",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clienteId", "order": "ASCENDING" },
-        { "fieldPath": "estado",    "order": "ASCENDING" },
+        { "fieldPath": "periodo",   "order": "ASCENDING"  },
         { "fieldPath": "creadoEn",  "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "leads",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "responsableId", "order": "ASCENDING" },
-        { "fieldPath": "estado",        "order": "ASCENDING" },
-        { "fieldPath": "creadoEn",      "order": "DESCENDING" }
       ]
     }
   ],
