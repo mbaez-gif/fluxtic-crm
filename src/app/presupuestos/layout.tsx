@@ -1,4 +1,6 @@
 export const dynamic = 'force-dynamic'
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+import { AppShell } from '@/components/layout/AppShell'
+
+export default function PresupuestosLayout({ children }: { children: React.ReactNode }) {
+  return <AppShell>{children}</AppShell>
 }

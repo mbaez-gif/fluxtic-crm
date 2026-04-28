@@ -16,7 +16,8 @@ import { es }              from 'date-fns/locale'
 import { Timestamp as FSTimestamp } from 'firebase/firestore'
 import type { Timestamp }  from 'firebase/firestore'
 import Link                from 'next/link'
-import { Plus, X, FolderKanban, Pencil, Trash2, MoreHorizontal } from 'lucide-react'
+import { Plus, X, FolderKanban, Pencil, Trash2 } from 'lucide-react'
+import { DropdownMenu } from '@/components/ui/DropdownMenu'
 
 const ESTADOS: ProyectoEstado[] = ['activo', 'pausado', 'completado', 'cancelado']
 const ESTADO_BADGE: Record<ProyectoEstado, 'teal' | 'warning' | 'default' | 'danger'> = {
@@ -240,24 +241,10 @@ export default function ProyectosPage() {
                       <td className="px-4 py-3 text-2xs text-flux-text3">{format(toDate(p.fechaInicio), "d MMM yyyy", { locale: es })}</td>
                       <td className="px-4 py-3"><Badge variant={ESTADO_BADGE[p.estado]}>{p.estado}</Badge></td>
                       <td className="px-4 py-3">
-                        <div className="relative flex justify-end">
-                          <button onClick={() => setMenuId(menuId === p.id ? null : p.id)}
-                            className="text-flux-text3 hover:text-flux-text1 p-1 rounded">
-                            <MoreHorizontal size={15} />
-                          </button>
-                          {menuId === p.id && (
-                            <div className="absolute top-full right-0 mt-1 z-20 bg-flux-card border border-flux-border rounded-xl shadow-card-hover py-1 min-w-[130px]">
-                              <button onClick={() => { setModal(p); setMenuId(null) }}
-                                className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-flux-text2 hover:bg-flux-muted">
-                                <Pencil size={11} /> Editar
-                              </button>
-                              <button onClick={() => handleDelete(p.id)}
-                                className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-flux-danger hover:bg-flux-muted">
-                                <Trash2 size={11} /> Eliminar
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        <DropdownMenu items={[
+                          { label: 'Editar',   icon: <Pencil size={12} />, onClick: () => setModal(p) },
+                          { label: 'Eliminar', icon: <Trash2 size={12} />, onClick: () => handleDelete(p.id), danger: true },
+                        ]} />
                       </td>
                     </tr>
                   ))}

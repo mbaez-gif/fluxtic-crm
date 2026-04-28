@@ -1,6 +1,5 @@
 'use client'
 
-import { use }             from 'react'
 import { useState }        from 'react'
 import { useDocument }     from '@/lib/hooks/useDocument'
 import { useCollection }   from '@/lib/hooks/useCollection'
@@ -48,8 +47,8 @@ const tareaSchema = z.object({
 })
 type TareaForm = z.infer<typeof tareaSchema>
 
-export default function ProyectoDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id }      = use(params)
+export default function ProyectoDetailPage({ params }: { params: { id: string } }) {
+  const { id }      = params
   const { profile } = useAuthContext()
   const { data: proyecto, loading: lp } = useDocument<Proyecto>('proyectos', id)
   const { data: tareas,   loading: lt } = useCollection<Tarea>('tareas', {
@@ -100,7 +99,7 @@ export default function ProyectoDetailPage({ params }: { params: Promise<{ id: s
     <div className="animate-fade-in">
       <PageHeader
         title={proyecto.nombre}
-        subtitle={`${cliente?.empresa ?? '—'} · €${proyecto.presupuesto.toLocaleString('es-ES')}`}
+        subtitle={`${cliente?.empresa ?? '—'}${proyecto.presupuesto ? ` · $${proyecto.presupuesto.toLocaleString('es-AR')}` : ''}`}
         actions={
           <Link href="/proyectos" className="btn-ghost flex items-center gap-2 text-sm">
             <ArrowLeft size={14} /> Volver
