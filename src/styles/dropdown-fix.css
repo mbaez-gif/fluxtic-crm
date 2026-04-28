@@ -1,0 +1,29 @@
+/* ── Dropdown menu fix ───────────────────────────────────
+   Menus de 3 puntitos (⋯) no se veían porque las tablas
+   tienen overflow:hidden. Este fix los hace siempre visibles.
+*/
+
+/* Asegurar que las rows de tabla no corten el contenido */
+.flux-card table,
+.flux-card .overflow-hidden {
+  overflow: visible !important;
+}
+
+/* Override — solo aplica overflow hidden al scroll horizontal en tablas */
+.flux-card .table-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Dropdown menus siempre encima de todo */
+[data-dropdown],
+.dropdown-menu {
+  z-index: 9999 !important;
+  position: fixed !important;
+}
+
+/* Fix general para portals de dropdowns */
+.menu-portal {
+  position: fixed;
+  z-index: 9999;
+}

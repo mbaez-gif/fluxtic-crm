@@ -8,13 +8,14 @@ import { PageHeader }        from '@/components/layout/PageHeader'
 import { Badge, EmptyState, Spinner } from '@/components/ui'
 import { LeadDrawer }        from '@/components/leads/LeadDrawer'
 import { EmailComposer }     from '@/components/email/EmailComposer'
+import { DropdownMenu }      from '@/components/ui/DropdownMenu'
 import type { Lead }         from '@/types'
 import { cn }                from '@/lib/utils'
 import { format }            from 'date-fns'
 import { es }                from 'date-fns/locale'
 import {
-  Plus, Search, X, Users, Pencil,
-  Trash2, Mail, MessageCircle, Eye, Phone,
+  Plus, Search, X, Users, Mail,
+  MessageCircle, Eye, Phone, Pencil, Trash2,
 } from 'lucide-react'
 
 function toDate(ts: any): Date {
@@ -110,13 +111,8 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
   )
 }
 
-// ── Lead card for mobile ──────────────────────────────────
 function LeadCard({ lead, onView, onEdit, onDelete, onEmail }: {
-  lead: Lead
-  onView:   () => void
-  onEdit:   () => void
-  onDelete: () => void
-  onEmail:  () => void
+  lead: Lead; onView: () => void; onEdit: () => void; onDelete: () => void; onEmail: () => void
 }) {
   const waUrl = lead.telefono
     ? `https://wa.me/${lead.telefono.replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${lead.nombre.split(' ')[0]}, te contactamos desde Fluxtic.`)}`
@@ -136,14 +132,10 @@ function LeadCard({ lead, onView, onEdit, onDelete, onEmail }: {
         </button>
         <Badge variant={ESTADO_BADGE[lead.estado]}>{ESTADO_LABEL[lead.estado]}</Badge>
       </div>
-
-      {/* Contact buttons */}
       <div className="flex items-center gap-1.5 flex-wrap mb-3">
         {lead.email && (
-          <button
-            onClick={onEmail}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-blue-950/40 text-blue-400 border border-blue-800/30 hover:bg-blue-950/60 transition-colors"
-          >
+          <button onClick={onEmail}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-blue-950/40 text-blue-400 border border-blue-800/30 hover:bg-blue-950/60 transition-colors">
             <Mail size={11} /> Email
           </button>
         )}
@@ -160,30 +152,28 @@ function LeadCard({ lead, onView, onEdit, onDelete, onEmail }: {
           </a>
         )}
       </div>
-
       <div className="flex items-center justify-between pt-2 border-t border-flux-border/50">
         <span className="text-2xs text-flux-text3 capitalize">
           {lead.fuente} · {format(toDate(lead.creadoEn), "d MMM yy", { locale: es })}
         </span>
-        <div className="flex gap-1">
-          <button onClick={onView}   className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-teal hover:bg-flux-tealGlow/20 transition-colors"><Eye size={14} /></button>
-          <button onClick={onEdit}   className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-text1 hover:bg-flux-muted transition-colors"><Pencil size={14} /></button>
-          <button onClick={onDelete} className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-danger hover:bg-red-950/30 transition-colors"><Trash2 size={14} /></button>
-        </div>
+        <DropdownMenu items={[
+          { label: 'Ver detalle',  icon: <Eye size={12} />,     onClick: onView   },
+          { label: 'Editar',       icon: <Pencil size={12} />,  onClick: onEdit   },
+          { label: 'Enviar email', icon: <Mail size={12} />,    onClick: onEmail  },
+          { label: 'Eliminar',     icon: <Trash2 size={12} />,  onClick: onDelete, danger: true },
+        ]} />
       </div>
     </div>
   )
 }
 
-// ── Main page ─────────────────────────────────────────────
 export default function LeadsPage() {
   const { data: leads, loading } = useCollection<Lead>('leads')
-  const [search,       setSearch]       = useState('')
-  const [filtEst,      setFiltEst]      = useState('todos')
-  const [modal,        setModal]        = useState<'new' | Lead | null>(null)
-  const [drawer,       setDrawer]       = useState<Lead | null>(null)
-  // Track which lead to email — separate from drawer
-  const [emailTarget,  setEmailTarget]  = useState<Lead | null>(null)
+  const [search,      setSearch]      = useState('')
+  const [filtEst,     setFiltEst]     = useState('todos')
+  const [modal,       setModal]       = useState<'new' | Lead | null>(null)
+  const [drawer,      setDrawer]      = useState<Lead | null>(null)
+  const [emailTarget, setEmailTarget] = useState<Lead | null>(null)
 
   const filtered = leads
     .filter(l => {
@@ -219,7 +209,6 @@ export default function LeadsPage() {
         />
 
         <div className="px-4 md:px-8 pb-10 space-y-4 pt-4">
-          {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-flux-text3" />
@@ -250,7 +239,7 @@ export default function LeadsPage() {
               action={<button onClick={() => setModal('new')} className="btn-primary flex items-center gap-2"><Plus size={14} /> Nuevo lead</button>} />
           ) : (
             <>
-              {/* Mobile: cards */}
+              {/* Mobile cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
                 {filtered.map(lead => (
                   <LeadCard key={lead.id} lead={lead}
@@ -262,101 +251,84 @@ export default function LeadsPage() {
                 ))}
               </div>
 
-              {/* Desktop: table */}
+              {/* Desktop table */}
               <div className="hidden md:block flux-card p-0 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-flux-border">
-                      {['Nombre / Empresa', 'Contactar', 'Fuente', 'Estado', 'Creado', ''].map(h => (
-                        <th key={h} className="text-left text-2xs font-medium text-flux-text3 uppercase tracking-widest px-4 py-3">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map(lead => (
-                      <tr key={lead.id} className="border-b border-flux-border/50 hover:bg-flux-muted/20 transition-colors">
-                        <td className="px-4 py-3">
-                          <button onClick={() => setDrawer(lead)} className="text-left group">
-                            <p className="font-medium text-flux-text1 group-hover:text-flux-teal transition-colors">{lead.nombre}</p>
-                            <p className="text-2xs text-flux-text3">{lead.empresa}</p>
-                          </button>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            {/* Email — opens CRM composer */}
-                            {lead.email && (
-                              <button
-                                onClick={() => setEmailTarget(lead)}
-                                title={`Enviar email a ${lead.email}`}
-                                className="p-1.5 rounded-lg hover:bg-blue-950/40 text-flux-text3 hover:text-blue-400 transition-colors"
-                              >
-                                <Mail size={13} />
-                              </button>
-                            )}
-                            {/* WhatsApp */}
-                            {waUrl(lead) && (
-                              <a href={waUrl(lead)!} target="_blank" rel="noopener noreferrer"
-                                title={lead.telefono}
-                                className="p-1.5 rounded-lg hover:bg-green-950/40 text-flux-text3 hover:text-green-400 transition-colors">
-                                <MessageCircle size={13} />
-                              </a>
-                            )}
-                            {lead.email && (
-                              <span className="text-2xs text-flux-text3 ml-1 truncate max-w-[140px]">{lead.email}</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-flux-text3 capitalize">{lead.fuente}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant={ESTADO_BADGE[lead.estado]}>{ESTADO_LABEL[lead.estado]}</Badge>
-                        </td>
-                        <td className="px-4 py-3 text-2xs text-flux-text3">
-                          {format(toDate(lead.creadoEn), "d MMM yy", { locale: es })}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-0.5">
-                            <button onClick={() => setDrawer(lead)}
-                              className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-teal hover:bg-flux-tealGlow/20 transition-colors">
-                              <Eye size={14} />
-                            </button>
-                            <button onClick={() => setModal(lead)}
-                              className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-text1 hover:bg-flux-muted transition-colors">
-                              <Pencil size={14} />
-                            </button>
-                            <button onClick={() => handleDelete(lead.id)}
-                              className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-danger hover:bg-red-950/30 transition-colors">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[640px]">
+                    <thead>
+                      <tr className="border-b border-flux-border">
+                        {['Nombre / Empresa', 'Contactar', 'Fuente', 'Estado', 'Creado', ''].map(h => (
+                          <th key={h} className="text-left text-2xs font-medium text-flux-text3 uppercase tracking-widest px-4 py-3">{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filtered.map(lead => (
+                        <tr key={lead.id} className="border-b border-flux-border/50 hover:bg-flux-muted/20 transition-colors">
+                          <td className="px-4 py-3">
+                            <button onClick={() => setDrawer(lead)} className="text-left group">
+                              <p className="font-medium text-flux-text1 group-hover:text-flux-teal transition-colors">{lead.nombre}</p>
+                              <p className="text-2xs text-flux-text3">{lead.empresa}</p>
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              {lead.email && (
+                                <button onClick={() => setEmailTarget(lead)}
+                                  title={lead.email}
+                                  className="p-1.5 rounded-lg hover:bg-blue-950/40 text-flux-text3 hover:text-blue-400 transition-colors">
+                                  <Mail size={13} />
+                                </button>
+                              )}
+                              {waUrl(lead) && (
+                                <a href={waUrl(lead)!} target="_blank" rel="noopener noreferrer"
+                                  title={lead.telefono}
+                                  className="p-1.5 rounded-lg hover:bg-green-950/40 text-flux-text3 hover:text-green-400 transition-colors">
+                                  <MessageCircle size={13} />
+                                </a>
+                              )}
+                              {lead.email && (
+                                <span className="text-2xs text-flux-text3 ml-1 truncate max-w-[140px]">{lead.email}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-flux-text3 capitalize">{lead.fuente}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant={ESTADO_BADGE[lead.estado]}>{ESTADO_LABEL[lead.estado]}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-2xs text-flux-text3">
+                            {format(toDate(lead.creadoEn), "d MMM yy", { locale: es })}
+                          </td>
+                          <td className="px-4 py-3">
+                            {/* Portal dropdown — no clipping */}
+                            <DropdownMenu items={[
+                              { label: 'Ver detalle',  icon: <Eye size={12} />,     onClick: () => setDrawer(lead) },
+                              { label: 'Editar',       icon: <Pencil size={12} />,  onClick: () => setModal(lead)  },
+                              { label: 'Enviar email', icon: <Mail size={12} />,    onClick: () => setEmailTarget(lead) },
+                              { label: 'Eliminar',     icon: <Trash2 size={12} />,  onClick: () => handleDelete(lead.id), danger: true },
+                            ]} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </>
           )}
         </div>
       </div>
 
-      {/* Modals */}
       {modal !== null && (
         <LeadModal lead={modal === 'new' ? undefined : modal} onClose={() => setModal(null)} />
       )}
-
       {drawerLead && (
         <LeadDrawer lead={drawerLead} onClose={() => setDrawer(null)}
           onEdit={() => { setModal(drawerLead); setDrawer(null) }} />
       )}
-
-      {/* Email composer — triggered from table OR card, independent of drawer */}
       {emailTarget?.email && (
-        <EmailComposer
-          nombre={emailTarget.nombre}
-          email={emailTarget.email}
-          leadId={emailTarget.id}
-          onClose={() => setEmailTarget(null)}
-        />
+        <EmailComposer nombre={emailTarget.nombre} email={emailTarget.email}
+          leadId={emailTarget.id} onClose={() => setEmailTarget(null)} />
       )}
     </>
   )
