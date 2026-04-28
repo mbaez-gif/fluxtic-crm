@@ -71,6 +71,7 @@ function AbonoModal({ abono, clientes, onClose }: {
     const fechaRenovacion = nextRenovacion(fechaInicio, values.periodicidad)
     const payload = {
       ...values,
+      moneda:          (values as any).moneda ?? 'ARS',
       fechaInicio:     FSTimestamp.fromDate(fechaInicio),
       fechaRenovacion: FSTimestamp.fromDate(fechaRenovacion),
     }
