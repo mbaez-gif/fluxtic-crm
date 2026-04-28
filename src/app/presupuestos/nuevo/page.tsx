@@ -89,7 +89,11 @@ export default function NuevoPresupuestoPage() {
   const [numero,    setNumero]    = useState('')
   const [saving,    setSaving]    = useState(false)
   const [errorMsg,  setErrorMsg]  = useState('')
-  const [clientes,  setClientes]  = useState<any[]>([])
+  const [clientes,        setClientes]        = useState<any[]>([])
+  const [leads,           setLeads]           = useState<any[]>([])
+  const [clienteSelId,    setClienteSelId]    = useState('')
+  const [autoFillActivo,  setAutoFillActivo]  = useState(false)
+  const [camposEditables, setCamposEditables] = useState(true)
 
   // Form state
   const [cliente,    setCliente]    = useState<ClientePresupuesto>(emptyCliente)
@@ -138,6 +142,13 @@ export default function NuevoPresupuestoPage() {
     getDocs(query(collection(db, 'clientes'), orderBy('nombre'))).then(snap => {
       setClientes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     }).catch(() => {})
+
+    getDocs(collection(db, 'leads')).then(snap => {
+      setLeads(snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((l: any) => l.nombre && (l.estado === 'calificado' || l.estado === 'contactado'))
+      )
+    }).catch(() => {})
   }, [profile])
 
   // Auto-set vencimiento from validez
@@ -174,6 +185,45 @@ export default function NuevoPresupuestoPage() {
       ...a,
       etapas: a.etapas.map(e => e.id === id ? { ...e, [field]: val } : e),
     }))
+  }
+
+  // Select existing client or lead
+  function selectExisting(sourceId: string, type: 'cliente' | 'lead') {
+    if (!sourceId) {
+      setClienteSelId('')
+      setAutoFillActivo(false)
+      setCamposEditables(true)
+      return
+    }
+    const source = type === 'cliente'
+      ? clientes.find(c => c.id === sourceId)
+      : leads.find(l => l.id === sourceId)
+    if (!source) return
+
+    setClienteSelId(sourceId)
+    setAutoFillActivo(true)
+
+    setCliente(prev => ({
+      ...prev,
+      clienteId:    source.id,
+      razonSocial:  source.empresa ?? source.nombre ?? '',
+      contacto:     source.nombre  ?? '',
+      email:        source.email   ?? '',
+      telefono:     source.telefono ?? '',
+      cuitDni:      source.cuitDni ?? source.taxId ?? '',
+      direccion:    source.direccion ?? '',
+      localidad:    source.localidad ?? '',
+      provincia:    source.provincia ?? '',
+      rubro:        source.rubro ?? source.actividad ?? '',
+      observaciones: source.observaciones ?? source.notas ?? '',
+    }))
+  }
+
+  function clearSelection() {
+    setClienteSelId('')
+    setAutoFillActivo(false)
+    setCamposEditables(true)
+    setCliente(prev => ({ ...prev, clienteId: undefined }))
   }
 
   // Totals
@@ -266,30 +316,107 @@ export default function NuevoPresupuestoPage() {
       // ── STEP 0: Cliente ──────────────────────────────────
       case 0: return (
         <div className="space-y-5">
-          <SH title="Datos del cliente" subtitle="Podés seleccionar un cliente existente o completar manualmente" />
+          <SH title="Datos del cliente" />
 
-          {clientes.length > 0 && (
-            <Field label="Seleccionar cliente existente del CRM">
-              <select className="flux-input"
-                onChange={e => {
-                  const c = clientes.find(cl => cl.id === e.target.value)
-                  if (c) setCliente(prev => ({
-                    ...prev,
-                    clienteId:   c.id,
-                    razonSocial: c.nombre ?? c.empresa ?? '',
-                    email:       c.email ?? '',
-                    telefono:    c.telefono ?? '',
-                  }))
-                }}>
-                <option value="">— Completar manualmente ↓ —</option>
-                {clientes.map(c => (
-                  <option key={c.id} value={c.id}>{c.nombre} {c.empresa ? `— ${c.empresa}` : ''}</option>
-                ))}
-              </select>
-            </Field>
-          )}
+          {/* ── Selector de cliente existente ── */}
+          <div className="p-4 rounded-xl border border-flux-border bg-flux-surface space-y-4">
+            <p className="text-xs font-semibold text-flux-text1">Seleccionar de clientes existentes</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Clientes */}
+            {clientes.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-flux-text2 mb-1.5">
+                  Clientes del CRM
+                </label>
+                <select className="flux-input"
+                  value={clienteSelId}
+                  onChange={e => selectExisting(e.target.value, 'cliente')}>
+                  <option value="">— Seleccionar cliente —</option>
+                  {clientes.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.empresa ? `${c.empresa} · ${c.nombre}` : c.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Leads calificados */}
+            {leads.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-flux-text2 mb-1.5">
+                  Leads calificados / contactados
+                </label>
+                <select className="flux-input"
+                  value={clienteSelId}
+                  onChange={e => selectExisting(e.target.value, 'lead')}>
+                  <option value="">— Seleccionar lead —</option>
+                  {leads.map(l => (
+                    <option key={l.id} value={l.id}>
+                      [{(l as any).leadId ?? '—'}] {l.nombre} {l.empresa ? `· ${l.empresa}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Auto-fill status */}
+            {autoFillActivo && (
+              <div className="flex items-center justify-between bg-flux-tealGlow border border-flux-teal/20 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={13} className="text-flux-teal shrink-0" />
+                  <p className="text-xs text-flux-teal font-medium">
+                    Datos cargados automáticamente desde el CRM
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Toggle edición */}
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs text-flux-text3">
+                    <button
+                      type="button"
+                      onClick={() => setCamposEditables(e => !e)}
+                      className={cn(
+                        'w-8 h-4 rounded-full transition-all relative shrink-0',
+                        camposEditables ? 'bg-flux-teal' : 'bg-flux-muted'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all',
+                        camposEditables ? 'left-4' : 'left-0.5'
+                      )} />
+                    </button>
+                    Editar datos
+                  </label>
+                  {/* Clear */}
+                  <button type="button" onClick={clearSelection}
+                    className="text-flux-text3 hover:text-flux-danger transition-colors text-xs">
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {clientes.length === 0 && leads.length === 0 && (
+              <p className="text-xs text-flux-text3 italic">
+                No hay clientes ni leads calificados en el CRM todavía.
+              </p>
+            )}
+          </div>
+
+          {/* Separador */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 border-t border-flux-border" />
+            <span className="text-2xs text-flux-text3 font-medium uppercase tracking-wider">
+              {autoFillActivo ? 'Datos del cliente seleccionado' : 'O completar manualmente'}
+            </span>
+            <div className="flex-1 border-t border-flux-border" />
+          </div>
+
+          {/* ── Formulario manual / edición ── */}
+          <div className={cn(
+            'grid grid-cols-1 sm:grid-cols-2 gap-4 transition-opacity',
+            !camposEditables && 'opacity-60 pointer-events-none select-none'
+          )}>
             <Field label="Razón social / Nombre" required>
               <input className="flux-input" placeholder="Empresa S.A. o Juan Pérez"
                 value={cliente.razonSocial}
@@ -338,7 +465,8 @@ export default function NuevoPresupuestoPage() {
               </Field>
             </div>
           </div>
-          <Field label="Observaciones internas del cliente">
+
+          <Field label="Observaciones internas">
             <textarea rows={2} className="flux-input resize-none text-sm"
               placeholder="Notas internas sobre el cliente (no aparecen en el PDF)"
               value={cliente.observaciones}
@@ -347,7 +475,7 @@ export default function NuevoPresupuestoPage() {
         </div>
       )
 
-      // ── STEP 1: General ──────────────────────────────────
+            // ── STEP 1: General ──────────────────────────────────
       case 1: return (
         <div className="space-y-5">
           <SH title="Información general de la propuesta" />
