@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic'
-
 import { type NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 
@@ -26,6 +24,7 @@ export async function GET(req: NextRequest) {
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/calendar',
       'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive.file',  // ← needed to create files
     ],
   })
 

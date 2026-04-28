@@ -4,13 +4,14 @@ import { useState }       from 'react'
 import { useCollection }  from '@/lib/hooks/useCollection'
 import { db }             from '@/lib/firebase/config'
 import {
-  doc, deleteDoc, addDoc,
-  collection, serverTimestamp, updateDoc,
+  doc, deleteDoc, addDoc, collection,
+  serverTimestamp, updateDoc,
 } from 'firebase/firestore'
 import { PageHeader }     from '@/components/layout/PageHeader'
 import { EmptyState, Spinner } from '@/components/ui'
-import { Wallet, Plus, Trash2, Pencil, Check, X, Save } from 'lucide-react'
+import { DropdownMenu }   from '@/components/ui/DropdownMenu'
 import { SOCIOS }         from '@/types/admin'
+import { Wallet, Plus, Pencil, Trash2, Save, X } from 'lucide-react'
 
 interface MedioPago {
   id:          string
@@ -21,11 +22,12 @@ interface MedioPago {
   activo:      boolean
 }
 
-const TIPOS = ['Tarjeta crédito', 'Tarjeta débito', 'Transferencia', 'Efectivo', 'Cuenta bancaria', 'Billetera virtual', 'Otro']
+const TIPOS = [
+  'Tarjeta crédito', 'Tarjeta débito', 'Transferencia',
+  'Efectivo', 'Cuenta bancaria', 'Billetera virtual', 'Otro',
+]
 
-function MedioPagoModal({ medio, onClose }: {
-  medio?: MedioPago; onClose: () => void
-}) {
+function MedioPagoModal({ medio, onClose }: { medio?: MedioPago; onClose: () => void }) {
   const socios = SOCIOS.filter(s => !s.uid.includes('_UID'))
   const [form,   setForm]   = useState({
     nombre:      medio?.nombre      ?? '',
@@ -35,33 +37,26 @@ function MedioPagoModal({ medio, onClose }: {
   })
   const [saving, setSaving] = useState(false)
 
+  function selectOwner(uid: string) {
+    const s = socios.find(s => s.uid === uid)
+    setForm(f => ({ ...f, ownerUid: uid, ownerNombre: s?.nombre ?? '' }))
+  }
+
   async function handleSave() {
     if (!form.nombre.trim()) return
     setSaving(true)
     try {
       const data = {
-        nombre:      form.nombre.trim(),
-        tipo:        form.tipo,
-        ownerUid:    form.ownerUid,
-        ownerNombre: form.ownerNombre,
-        activo:      true,
+        nombre: form.nombre.trim(), tipo: form.tipo,
+        ownerUid: form.ownerUid, ownerNombre: form.ownerNombre, activo: true,
       }
       if (medio) {
-        await updateDoc(doc(db, 'adminMediosPago', medio.id), {
-          ...data, actualizadoEn: serverTimestamp(),
-        })
+        await updateDoc(doc(db, 'adminMediosPago', medio.id), { ...data, actualizadoEn: serverTimestamp() })
       } else {
-        await addDoc(collection(db, 'adminMediosPago'), {
-          ...data, creadoEn: serverTimestamp(), actualizadoEn: serverTimestamp(),
-        })
+        await addDoc(collection(db, 'adminMediosPago'), { ...data, creadoEn: serverTimestamp(), actualizadoEn: serverTimestamp() })
       }
       onClose()
     } finally { setSaving(false) }
-  }
-
-  function selectOwner(uid: string) {
-    const s = socios.find(s => s.uid === uid)
-    setForm(f => ({ ...f, ownerUid: uid, ownerNombre: s?.nombre ?? '' }))
   }
 
   return (
@@ -75,7 +70,7 @@ function MedioPagoModal({ medio, onClose }: {
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-flux-text2 mb-1.5">Nombre *</label>
-            <input className="flux-input" placeholder="Ej: Visa Martín, Transferencia Santiago…"
+            <input className="flux-input" placeholder="Ej: Visa Martín, Cuenta Santander…"
               value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
           </div>
           <div>
@@ -109,10 +104,15 @@ export default function MediosPagoPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
 
   async function handleDelete(id: string, nombre: string) {
-    if (!confirm(`¿Eliminar "${nombre}"?`)) return
+    if (!confirm(`¿Eliminar el medio de pago "${nombre}"?`)) return
     setDeleting(id)
-    try { await deleteDoc(doc(db, 'adminMediosPago', id)) }
-    finally { setDeleting(null) }
+    try {
+      await deleteDoc(doc(db, 'adminMediosPago', id))
+    } catch (err: any) {
+      alert('Error al eliminar: ' + (err?.message ?? 'Error'))
+    } finally {
+      setDeleting(null)
+    }
   }
 
   return (
@@ -133,7 +133,7 @@ export default function MediosPagoPage() {
             <div className="flex justify-center py-20"><Spinner size={24} /></div>
           ) : medios.length === 0 ? (
             <EmptyState icon={<Wallet size={40} />} title="Sin medios de pago"
-              description="Registrá las tarjetas y cuentas del equipo para usarlas en los gastos."
+              description="Registrá las tarjetas y cuentas del equipo para los gastos."
               action={
                 <button onClick={() => setModal('new')} className="btn-primary flex items-center gap-2">
                   <Plus size={14} /> Nuevo medio
@@ -156,17 +156,10 @@ export default function MediosPagoPage() {
                       <td className="px-4 py-3 text-xs text-flux-text3">{m.tipo}</td>
                       <td className="px-4 py-3 text-xs text-flux-text2">{m.ownerNombre}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <button onClick={() => setModal(m)}
-                            className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-text1 hover:bg-flux-muted transition-colors">
-                            <Pencil size={13} />
-                          </button>
-                          <button onClick={() => handleDelete(m.id, m.nombre)}
-                            disabled={deleting === m.id}
-                            className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-danger hover:bg-red-950/30 transition-colors">
-                            {deleting === m.id ? <Spinner size={13} /> : <Trash2 size={13} />}
-                          </button>
-                        </div>
+                        <DropdownMenu items={[
+                          { label: 'Editar',   icon: <Pencil size={12} />, onClick: () => setModal(m) },
+                          { label: 'Eliminar', icon: <Trash2 size={12} />, onClick: () => handleDelete(m.id, m.nombre), danger: true, disabled: deleting === m.id },
+                        ]} />
                       </td>
                     </tr>
                   ))}
@@ -178,10 +171,7 @@ export default function MediosPagoPage() {
       </div>
 
       {modal !== null && (
-        <MedioPagoModal
-          medio={modal === 'new' ? undefined : modal}
-          onClose={() => setModal(null)}
-        />
+        <MedioPagoModal medio={modal === 'new' ? undefined : modal} onClose={() => setModal(null)} />
       )}
     </>
   )

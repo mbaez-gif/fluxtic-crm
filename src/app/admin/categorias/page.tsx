@@ -42,8 +42,13 @@ export default function CategoriasPage() {
   async function handleDelete(id: string, nombre: string) {
     if (!confirm(`¿Eliminar la categoría "${nombre}"?`)) return
     setDeleting(id)
-    try { await deleteDoc(doc(db, 'adminCategorias', id)) }
-    finally { setDeleting(null) }
+    try {
+      await deleteDoc(doc(db, 'adminCategorias', id))
+    } catch (err: any) {
+      alert('Error al eliminar: ' + (err?.message ?? 'Error'))
+    } finally {
+      setDeleting(null)
+    }
   }
 
   return (
@@ -59,17 +64,15 @@ export default function CategoriasPage() {
       />
 
       <div className="px-4 md:px-8 pb-10 pt-4 max-w-xl">
-
         {adding && (
           <div className="flux-card flex items-center gap-3 mb-4">
             <input autoFocus className="flux-input flex-1" placeholder="Nombre de la categoría…"
               value={newName} onChange={e => setNewName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }} />
-            <button onClick={handleAdd} disabled={saving}
-              className="btn-primary p-2.5">
+            <button onClick={handleAdd} disabled={saving} className="btn-primary p-2.5">
               {saving ? <Spinner size={14} /> : <Check size={14} />}
             </button>
-            <button onClick={() => setAdding(false)} className="btn-ghost p-2.5">
+            <button onClick={() => { setAdding(false); setNewName('') }} className="btn-ghost p-2.5">
               <X size={14} />
             </button>
           </div>
@@ -79,7 +82,7 @@ export default function CategoriasPage() {
           <div className="flex justify-center py-20"><Spinner size={24} /></div>
         ) : categorias.length === 0 ? (
           <EmptyState icon={<Tag size={40} />} title="Sin categorías"
-            description="Las categorías te ayudan a clasificar los gastos."
+            description="Las categorías clasifican los gastos."
             action={
               <button onClick={() => setAdding(true)} className="btn-primary flex items-center gap-2">
                 <Plus size={14} /> Nueva categoría

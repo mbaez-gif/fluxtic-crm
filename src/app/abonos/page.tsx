@@ -21,15 +21,12 @@ import {
   MoreHorizontal, CheckCircle, AlertTriangle, ChevronDown, ChevronUp,
 } from 'lucide-react'
 
-const ESTADOS: AbonoEstado[]       = ['activo', 'pausado', 'cancelado']
+const ESTADOS: AbonoEstado[]      = ['activo', 'pausado', 'cancelado']
 const PERIODICIDADES: AbonoPeriodicidad[] = ['mensual', 'trimestral', 'anual']
-const MONEDAS = [
-  { value: 'ARS', label: 'ARS $' },
-  { value: 'USD', label: 'USD $' },
-  { value: 'EUR', label: 'EUR €' },
-]
 const ESTADO_BADGE: Record<AbonoEstado, 'teal' | 'warning' | 'danger'> = {
-  activo: 'teal', pausado: 'warning', cancelado: 'danger',
+  activo:   'teal',
+  pausado:  'warning',
+  cancelado:'danger',
 }
 
 function toDate(ts: Timestamp | Date | undefined): Date {
@@ -49,13 +46,13 @@ const schema = z.object({
   nombre:       z.string().min(2, 'Requerido'),
   descripcion:  z.string().min(5, 'Requerido'),
   monto:        z.coerce.number().min(1, 'Debe ser mayor a 0'),
-  moneda:       z.string().default('ARS'),
   periodicidad: z.enum(['mensual', 'trimestral', 'anual']),
   fechaInicio:  z.string().min(1, 'Requerido'),
   estado:       z.enum(['activo', 'pausado', 'cancelado']),
 })
 type FormValues = z.infer<typeof schema>
 
+// ── Modal ─────────────────────────────────────────────────
 function AbonoModal({ abono, clientes, onClose }: {
   abono?:   Abono
   clientes: Cliente[]
@@ -66,11 +63,11 @@ function AbonoModal({ abono, clientes, onClose }: {
     resolver: zodResolver(schema),
     defaultValues: abono
       ? { ...abono, fechaInicio: format(toDate(abono.fechaInicio), 'yyyy-MM-dd') }
-      : { estado: 'activo', periodicidad: 'mensual', moneda: 'ARS' }, // ← ARS por default
+      : { estado: 'activo', periodicidad: 'mensual' },
   })
 
   async function onSubmit(values: FormValues) {
-    const fechaInicio     = new Date(values.fechaInicio)
+    const fechaInicio    = new Date(values.fechaInicio)
     const fechaRenovacion = nextRenovacion(fechaInicio, values.periodicidad)
     const payload = {
       ...values,
@@ -121,16 +118,10 @@ function AbonoModal({ abono, clientes, onClose }: {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-flux-text2 mb-1.5">Monto *</label>
+              <label className="block text-xs font-medium text-flux-text2 mb-1.5">Monto (€) *</label>
               <input type="number" min="0" className={cn('flux-input', errors.monto && 'border-flux-danger')}
-                placeholder="150000" {...register('monto')} />
+                placeholder="1500" {...register('monto')} />
               {errors.monto && <p className="mt-1 text-2xs text-flux-danger">{errors.monto.message}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-flux-text2 mb-1.5">Moneda</label>
-              <select className="flux-input" {...register('moneda')}>
-                {MONEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-flux-text2 mb-1.5">Periodicidad *</label>
@@ -138,10 +129,10 @@ function AbonoModal({ abono, clientes, onClose }: {
                 {PERIODICIDADES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
               </select>
             </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-medium text-flux-text2 mb-1.5">Fecha inicio *</label>
               <input type="date" className={cn('flux-input', errors.fechaInicio && 'border-flux-danger')} {...register('fechaInicio')} />
-              <p className="mt-1 text-2xs text-flux-text3">La fecha de renovación se calcula automáticamente.</p>
+              <p className="mt-1 text-2xs text-flux-text3">La fecha de renovación se calculará automáticamente.</p>
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-flux-text2 mb-1.5">Descripción del servicio *</label>
@@ -150,6 +141,7 @@ function AbonoModal({ abono, clientes, onClose }: {
               {errors.descripcion && <p className="mt-1 text-2xs text-flux-danger">{errors.descripcion.message}</p>}
             </div>
           </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-ghost">Cancelar</button>
             <button type="submit" disabled={isSubmitting} className="btn-primary flex items-center gap-2">
@@ -163,6 +155,7 @@ function AbonoModal({ abono, clientes, onClose }: {
   )
 }
 
+// ── Abono row with payments ───────────────────────────────
 function AbonoRow({ abono, clienteNombre, onEdit, onDelete }: {
   abono:         Abono
   clienteNombre: string
@@ -176,23 +169,25 @@ function AbonoRow({ abono, clienteNombre, onEdit, onDelete }: {
     orderField: 'fechaEmitido', orderDir: 'desc',
   })
 
-  const hoy       = new Date()
+  const hoy      = new Date()
   const renovDate = toDate(abono.fechaRenovacion)
-  const proxima   = isAfter(addDays(hoy, 7), renovDate) && isAfter(renovDate, hoy)
-  const vencida   = isAfter(hoy, renovDate) && abono.estado === 'activo'
+  const proxima  = isAfter(addDays(hoy, 7), renovDate) && isAfter(renovDate, hoy)
+  const vencida  = isAfter(hoy, renovDate) && abono.estado === 'activo'
 
   async function registrarPago() {
     setRegistering(true)
     try {
+      // Registrar pago
       await addDoc(collection(db, `abonos/${abono.id}/pagos`), {
-        abonoId:      abono.id,
-        monto:        abono.monto,
+        abonoId:     abono.id,
+        monto:       abono.monto,
         fechaEmitido: serverTimestamp(),
         fechaPagado:  serverTimestamp(),
         estado:       'pagado',
         creadoEn:     serverTimestamp(),
         actualizadoEn: serverTimestamp(),
       })
+      // Calcular próxima renovación
       const nuevaRenovacion = nextRenovacion(renovDate, abono.periodicidad)
       await updateDocById<Abono>('abonos', abono.id, {
         fechaRenovacion: FSTimestamp.fromDate(nuevaRenovacion),
@@ -202,24 +197,24 @@ function AbonoRow({ abono, clienteNombre, onEdit, onDelete }: {
     }
   }
 
-  const monedaSymbol = abono.moneda === 'USD' ? 'USD $' : abono.moneda === 'EUR' ? '€' : '$'
-
   return (
     <>
-      <tr className={cn('border-b border-flux-border/50 transition-colors group',
-        expanded ? 'bg-flux-muted/20' : 'hover:bg-flux-muted/20')}>
+      <tr className={cn(
+        'border-b border-flux-border/50 transition-colors group',
+        expanded ? 'bg-flux-muted/20' : 'hover:bg-flux-muted/20'
+      )}>
         <td className="px-4 py-3">
           <p className="font-medium text-flux-text1 text-sm">{abono.nombre}</p>
           <p className="text-2xs text-flux-text3">{abono.descripcion}</p>
         </td>
         <td className="px-4 py-3 text-xs text-flux-text2">{clienteNombre}</td>
         <td className="px-4 py-3 font-medium text-flux-teal text-sm">
-          {monedaSymbol} {abono.monto.toLocaleString('es-AR')}
+          €{abono.monto.toLocaleString('es-ES')}
           <span className="text-2xs text-flux-text3 font-normal ml-1">/{abono.periodicidad.slice(0, 3)}</span>
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-1.5">
-            {vencida  && <AlertTriangle size={12} className="text-flux-danger" />}
+            {vencida && <AlertTriangle size={12} className="text-flux-danger" />}
             {proxima && !vencida && <AlertTriangle size={12} className="text-flux-warning" />}
             <span className={cn('text-xs', vencida ? 'text-flux-danger' : proxima ? 'text-flux-warning' : 'text-flux-text2')}>
               {format(renovDate, "d MMM yyyy", { locale: es })}
@@ -235,22 +230,24 @@ function AbonoRow({ abono, clienteNombre, onEdit, onDelete }: {
                 {registering
                   ? <div className="w-3 h-3 border-2 border-flux-border border-t-flux-teal rounded-full animate-spin" />
                   : <CheckCircle size={11} />}
-                Cobrado
+                Pago cobrado
               </button>
             )}
             <button onClick={() => setExpanded(e => !e)}
               className="text-flux-text3 hover:text-flux-text1 p-1 transition-colors">
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
-            <button onClick={onEdit} className="text-flux-text2 hover:text-flux-white p-1 transition-colors">
+            <button onClick={onEdit} className="text-flux-text3 hover:text-flux-text1 p-1 transition-all">
               <Pencil size={13} />
             </button>
-            <button onClick={onDelete} className="text-flux-text2 hover:text-flux-danger p-1 transition-colors">
+            <button onClick={onDelete} className="text-flux-text3 hover:text-flux-danger p-1 transition-all">
               <Trash2 size={13} />
             </button>
           </div>
         </td>
       </tr>
+
+      {/* Pagos expandidos */}
       {expanded && (
         <tr className="border-b border-flux-border/50 bg-flux-surface/30">
           <td colSpan={6} className="px-6 py-3">
@@ -266,9 +263,7 @@ function AbonoRow({ abono, clienteNombre, onEdit, onDelete }: {
                     <span className="text-flux-text3 w-24">
                       {p.fechaPagado ? format(toDate(p.fechaPagado), "d MMM yyyy", { locale: es }) : '—'}
                     </span>
-                    <span className="text-flux-teal font-medium">
-                      {monedaSymbol} {p.monto.toLocaleString('es-AR')}
-                    </span>
+                    <span className="text-flux-teal font-medium">€{p.monto.toLocaleString('es-ES')}</span>
                     <Badge variant="teal">{p.estado}</Badge>
                   </div>
                 ))}
@@ -281,21 +276,20 @@ function AbonoRow({ abono, clienteNombre, onEdit, onDelete }: {
   )
 }
 
+// ── Main page ─────────────────────────────────────────────
 export default function AbonosPage() {
-  const { data: abonos,   loading: la } = useCollection<Abono>('abonos')
-  const { data: clientes, loading: lc } = useCollection<Cliente>('clientes')
+  const { data: abonos,  loading: la } = useCollection<Abono>('abonos')
+  const { data: clientes,loading: lc } = useCollection<Cliente>('clientes')
 
   const [modal,     setModal]     = useState<'new' | Abono | null>(null)
   const [filterEst, setFilterEst] = useState<AbonoEstado | 'todos'>('todos')
 
   const clienteMap = Object.fromEntries(clientes.map(c => [c.id, c]))
 
-  // MRR calculado en ARS (simplificado — en producción habría que convertir monedas)
   const mrr = abonos.filter(a => a.estado === 'activo').reduce((acc, a) => {
-    const m = a.periodicidad === 'mensual' ? a.monto
-      : a.periodicidad === 'trimestral' ? a.monto / 3
-      : a.monto / 12
-    return acc + m
+    if (a.periodicidad === 'mensual')    return acc + a.monto
+    if (a.periodicidad === 'trimestral') return acc + a.monto / 3
+    return acc + a.monto / 12
   }, 0)
 
   const filtered = abonos.filter(a => filterEst === 'todos' || a.estado === filterEst)
@@ -305,12 +299,14 @@ export default function AbonosPage() {
     await deleteDocById('abonos', id)
   }
 
+  const loading = la || lc
+
   return (
     <>
       <div className="animate-fade-in">
         <PageHeader
           title="Abonos"
-          subtitle={`${abonos.filter(a => a.estado === 'activo').length} activos · ${abonos.length} en total`}
+          subtitle={`MRR: €${Math.round(mrr).toLocaleString('es-ES')} · ${abonos.filter(a => a.estado === 'activo').length} activos`}
           actions={
             <button onClick={() => setModal('new')} className="btn-primary flex items-center gap-2">
               <Plus size={14} /> Nuevo abono
@@ -319,7 +315,7 @@ export default function AbonosPage() {
         />
 
         <div className="px-8 pb-10 space-y-5">
-          {/* Resumen por periodicidad */}
+          {/* MRR cards */}
           <div className="grid grid-cols-3 gap-4">
             {(['mensual', 'trimestral', 'anual'] as AbonoPeriodicidad[]).map(p => {
               const total = abonos.filter(a => a.estado === 'activo' && a.periodicidad === p)
@@ -327,9 +323,7 @@ export default function AbonosPage() {
               return (
                 <div key={p} className="flux-card text-center">
                   <p className="text-2xs text-flux-text3 uppercase tracking-widest mb-1 capitalize">{p}</p>
-                  <p className="font-display text-xl font-bold text-flux-white">
-                    $ {total.toLocaleString('es-AR')}
-                  </p>
+                  <p className="font-display text-xl font-bold text-flux-white">€{total.toLocaleString('es-ES')}</p>
                 </div>
               )
             })}
@@ -346,14 +340,14 @@ export default function AbonosPage() {
             ))}
           </div>
 
-          {la || lc ? (
+          {loading ? (
             <div className="flex items-center gap-2 text-flux-text3 text-sm py-12 justify-center"><Spinner /> Cargando…</div>
           ) : filtered.length === 0 ? (
             <EmptyState icon={<CreditCard size={40} />} title="Sin abonos"
               description="Los abonos son contratos recurrentes con tus clientes."
               action={<button onClick={() => setModal('new')} className="btn-primary flex items-center gap-2"><Plus size={14} /> Crear abono</button>} />
           ) : (
-            <div className="flux-card p-0 overflow-visible">
+            <div className="flux-card p-0 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-flux-border">

@@ -1,15 +1,16 @@
 'use client'
 
-import { useState }         from 'react'
-import { useCollection }    from '@/lib/hooks/useCollection'
-import { db }               from '@/lib/firebase/config'
+import { useState }       from 'react'
+import { useCollection }  from '@/lib/hooks/useCollection'
+import { db }             from '@/lib/firebase/config'
 import {
-  doc, deleteDoc, addDoc,
-  collection, serverTimestamp, updateDoc,
+  doc, deleteDoc, addDoc, collection,
+  serverTimestamp, updateDoc,
 } from 'firebase/firestore'
-import { PageHeader }       from '@/components/layout/PageHeader'
+import { PageHeader }     from '@/components/layout/PageHeader'
 import { EmptyState, Spinner } from '@/components/ui'
-import { Store, Plus, Trash2, Pencil, X, Save } from 'lucide-react'
+import { DropdownMenu }   from '@/components/ui/DropdownMenu'
+import { Store, Plus, Pencil, Trash2, Save, X } from 'lucide-react'
 
 interface Proveedor {
   id:     string
@@ -20,9 +21,7 @@ interface Proveedor {
   activo: boolean
 }
 
-function ProveedorModal({ prov, onClose }: {
-  prov?: Proveedor; onClose: () => void
-}) {
+function ProveedorModal({ prov, onClose }: { prov?: Proveedor; onClose: () => void }) {
   const [form,   setForm]   = useState({
     nombre: prov?.nombre ?? '',
     taxId:  prov?.taxId  ?? '',
@@ -43,13 +42,9 @@ function ProveedorModal({ prov, onClose }: {
         activo: true,
       }
       if (prov) {
-        await updateDoc(doc(db, 'adminProveedores', prov.id), {
-          ...data, actualizadoEn: serverTimestamp(),
-        })
+        await updateDoc(doc(db, 'adminProveedores', prov.id), { ...data, actualizadoEn: serverTimestamp() })
       } else {
-        await addDoc(collection(db, 'adminProveedores'), {
-          ...data, creadoEn: serverTimestamp(), actualizadoEn: serverTimestamp(),
-        })
+        await addDoc(collection(db, 'adminProveedores'), { ...data, creadoEn: serverTimestamp(), actualizadoEn: serverTimestamp() })
       }
       onClose()
     } finally { setSaving(false) }
@@ -66,23 +61,19 @@ function ProveedorModal({ prov, onClose }: {
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-medium text-flux-text2 mb-1.5">Nombre *</label>
-            <input className="flux-input" value={form.nombre}
-              onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+            <input className="flux-input" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
           </div>
           <div>
             <label className="block text-xs font-medium text-flux-text2 mb-1.5">CUIT / Tax ID</label>
-            <input className="flux-input" placeholder="20-12345678-9" value={form.taxId}
-              onChange={e => setForm(f => ({ ...f, taxId: e.target.value }))} />
+            <input className="flux-input" placeholder="20-12345678-9" value={form.taxId} onChange={e => setForm(f => ({ ...f, taxId: e.target.value }))} />
           </div>
           <div>
             <label className="block text-xs font-medium text-flux-text2 mb-1.5">Email</label>
-            <input type="email" className="flux-input" value={form.email}
-              onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            <input type="email" className="flux-input" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           </div>
           <div>
             <label className="block text-xs font-medium text-flux-text2 mb-1.5">Rubro</label>
-            <input className="flux-input" placeholder="Software, Servicios, etc." value={form.rubro}
-              onChange={e => setForm(f => ({ ...f, rubro: e.target.value }))} />
+            <input className="flux-input" placeholder="Software, Servicios, etc." value={form.rubro} onChange={e => setForm(f => ({ ...f, rubro: e.target.value }))} />
           </div>
         </div>
         <div className="flex gap-2 justify-end pt-2">
@@ -102,11 +93,15 @@ export default function ProveedoresPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
 
   async function handleDelete(id: string, nombre: string) {
-    if (!confirm(`¿Eliminar el proveedor "${nombre}"? Los gastos asociados no se borrarán.`)) return
+    if (!confirm(`¿Eliminar el proveedor "${nombre}"?\nLos gastos asociados no se eliminarán.`)) return
     setDeleting(id)
     try {
       await deleteDoc(doc(db, 'adminProveedores', id))
-    } finally { setDeleting(null) }
+    } catch (err: any) {
+      alert('Error al eliminar: ' + (err?.message ?? 'Error'))
+    } finally {
+      setDeleting(null)
+    }
   }
 
   return (
@@ -135,48 +130,40 @@ export default function ProveedoresPage() {
               } />
           ) : (
             <div className="flux-card p-0 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-flux-border">
-                    {['Nombre', 'CUIT', 'Email', 'Rubro', ''].map(h => (
-                      <th key={h} className="text-left text-2xs font-medium text-flux-text3 uppercase tracking-widest px-4 py-3">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {proveedores.map(p => (
-                    <tr key={p.id} className="border-b border-flux-border/50 hover:bg-flux-muted/20 transition-colors">
-                      <td className="px-4 py-3 font-medium text-flux-text1">{p.nombre}</td>
-                      <td className="px-4 py-3 text-xs text-flux-text3 font-mono">{p.taxId || '—'}</td>
-                      <td className="px-4 py-3 text-xs text-flux-text2">{p.email || '—'}</td>
-                      <td className="px-4 py-3 text-xs text-flux-text3">{p.rubro || '—'}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <button onClick={() => setModal(p)}
-                            className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-text1 hover:bg-flux-muted transition-colors">
-                            <Pencil size={13} />
-                          </button>
-                          <button onClick={() => handleDelete(p.id, p.nombre)}
-                            disabled={deleting === p.id}
-                            className="p-1.5 rounded-lg text-flux-text3 hover:text-flux-danger hover:bg-red-950/30 transition-colors">
-                            {deleting === p.id ? <Spinner size={13} /> : <Trash2 size={13} />}
-                          </button>
-                        </div>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[500px]">
+                  <thead>
+                    <tr className="border-b border-flux-border">
+                      {['Nombre', 'CUIT', 'Email', 'Rubro', ''].map(h => (
+                        <th key={h} className="text-left text-2xs font-medium text-flux-text3 uppercase tracking-widest px-4 py-3">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {proveedores.map(p => (
+                      <tr key={p.id} className="border-b border-flux-border/50 hover:bg-flux-muted/20 transition-colors">
+                        <td className="px-4 py-3 font-medium text-flux-text1">{p.nombre}</td>
+                        <td className="px-4 py-3 text-xs text-flux-text3 font-mono">{p.taxId || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-flux-text2">{p.email || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-flux-text3">{p.rubro || '—'}</td>
+                        <td className="px-4 py-3">
+                          <DropdownMenu items={[
+                            { label: 'Editar',    icon: <Pencil size={12} />, onClick: () => setModal(p) },
+                            { label: 'Eliminar',  icon: <Trash2 size={12} />, onClick: () => handleDelete(p.id, p.nombre), danger: true, disabled: deleting === p.id },
+                          ]} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
       </div>
 
       {modal !== null && (
-        <ProveedorModal
-          prov={modal === 'new' ? undefined : modal}
-          onClose={() => setModal(null)}
-        />
+        <ProveedorModal prov={modal === 'new' ? undefined : modal} onClose={() => setModal(null)} />
       )}
     </>
   )
