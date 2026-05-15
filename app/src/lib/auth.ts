@@ -28,16 +28,17 @@ export const authOptions: NextAuthOptions = {
           if (!res.ok) return null
 
           const data = await res.json()
-
-          if (!data.user) return null
+          if (!data?.id) return null
 
           return {
-            id:       data.user.id,
-            email:    data.user.email,
-            name:     `${data.user.nombre} ${data.user.apellido ?? ''}`.trim(),
-            rol:      data.user.rol,
-            nombre:   data.user.nombre,
-            permisos: data.user.permisos ?? {},
+            id:       data.id,
+            email:    data.email,
+            name:     `${data.nombre} ${data.apellido ?? ''}`.trim(),
+            rol:      data.rol,
+            nombre:   data.nombre,
+            permisos: data.permisos ?? [],
+            perfil_profesional_id: data.perfil_profesional_id ?? null,
+            paciente_id:           data.paciente_id ?? null,
           }
         } catch {
           return null
@@ -49,19 +50,23 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id      = user.id
-        token.rol     = (user as any).rol
-        token.nombre  = (user as any).nombre
-        token.permisos = (user as any).permisos ?? {}
+        token.id       = user.id
+        token.rol      = (user as any).rol
+        token.nombre   = (user as any).nombre
+        token.permisos = (user as any).permisos ?? []
+        token.perfil_profesional_id = (user as any).perfil_profesional_id ?? null
+        token.paciente_id           = (user as any).paciente_id ?? null
       }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id      = token.id
-        ;(session.user as any).rol    = token.rol
-        ;(session.user as any).nombre = token.nombre
-        ;(session.user as any).permisos = token.permisos ?? {}
+        (session.user as any).id       = token.id
+        ;(session.user as any).rol      = token.rol
+        ;(session.user as any).nombre   = token.nombre
+        ;(session.user as any).permisos = token.permisos ?? []
+        ;(session.user as any).perfil_profesional_id = (token as any).perfil_profesional_id ?? null
+        ;(session.user as any).paciente_id           = (token as any).paciente_id ?? null
       }
       return session
     },

@@ -3,7 +3,6 @@
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import styles from './Topbar.module.css';
-import NotificationsBell from './NotificationsBell';
 
 // WMO weather code → emoji + label
 function weatherInfo(code: number): { icon: string; label: string } {
@@ -73,9 +72,8 @@ export default function Topbar({ pathname, onMenuToggle }: Props) {
         <span className={styles.greetingText}>{saludo}, <em>{nombre}</em></span>
       </div>
 
-      {/* Right side: notificaciones + date + weather */}
+      {/* Right side: date + weather */}
       <div className={styles.actions}>
-        <NotificationsBell />
         <div className={styles.dateBlock}>
           <span className={styles.dateStr}>{fechaStr}</span>
           {weather && (

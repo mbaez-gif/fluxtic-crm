@@ -1,8 +1,5 @@
 // app/src/lib/api.ts
-// Cliente centralizado para llamadas a la API Fastify
-//
-// Server Components  → INTERNAL_API_URL  (http://api-salud:3001)
-// Client Components  → NEXT_PUBLIC_API_URL (https://api-salud.fluxtic.com)
+// Cliente centralizado para llamadas a la API Fastify de Fluxtic Salud.
 
 function getApiUrl(): string {
   if (typeof window !== 'undefined') {
@@ -11,91 +8,37 @@ function getApiUrl(): string {
   return process.env.INTERNAL_API_URL || 'http://api-salud:3001'
 }
 
-// ── Tipos para el dashboard ───────────────────────────────────────
-
-export interface TurnoDashboard {
-  id: string
-  fecha: string
-  hora_inicio: string
-  hora_fin: string
-  duracion_min: number
-  estado: string
-  precio: number
-  senia?: number | null
-  notas?: string | null
-  cliente: {
-    id: string
-    nombre: string
-    apellido: string
-    telefono: string
-    segmento: string
-  }
-  servicio: {
-    id: string
-    nombre: string
-    categoria: string
-    duracion_min: number
-    precio: number
-  }
-  profesional: {
-    id: string
-    nombre: string
-    apellido: string
-  }
+export interface ApiOptions extends Omit<RequestInit, 'body'> {
+  body?: unknown
+  token?: string
 }
 
-export interface ProductoDashboard {
-  id: string
-  nombre: string
-  sku: string | null
-  categoria: string
-  stock_actual: number
-  stock_minimo: number
-  precio_minorista: string | null
-  precio_mayorista: string | null
-  activo: boolean
-}
-
-// ── Cliente genérico ──────────────────────────────────────────────
-
-export async function apiClient<T>(path: string, options?: RequestInit): Promise<T> {
+export async function apiFetch<T = unknown>(path: string, opts: ApiOptions = {}): Promise<T> {
   const base = getApiUrl()
+  const { body, token, headers, ...rest } = opts
   const res = await fetch(`${base}${path}`, {
-    ...options,
+    ...rest,
     headers: {
       'Content-Type': 'application/json',
-      ...(options?.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(headers ?? {}),
     },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
     cache: 'no-store',
   })
-
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`API error ${res.status} en ${path}${text ? ': ' + text : ''}`)
+    const err: any = new Error(`API ${res.status} ${path}${text ? `: ${text}` : ''}`)
+    err.status = res.status
+    throw err
   }
-
-  return res.json() as Promise<T>
+  if (res.status === 204) return undefined as unknown as T
+  return (await res.json()) as T
 }
 
-// ── Funciones del dashboard ───────────────────────────────────────
-
-export async function getTurnosHoy(): Promise<TurnoDashboard[]> {
-  const hoy = new Date().toISOString().split('T')[0]
-  const res = await apiClient<{ data: TurnoDashboard[]; total: number }>(
-    `/turnos?fecha=${hoy}`
-  )
-  return res.data
-}
-
-export async function getStockBajoMinimo(): Promise<ProductoDashboard[]> {
-  return apiClient<ProductoDashboard[]>('/stock/bajo-minimo')
-}
-
-export async function getClientesCount(): Promise<number> {
-  const res = await apiClient<{ total: number }>('/clientes?limit=1')
-  return res.total
-}
-
-export async function getProductos(): Promise<ProductoDashboard[]> {
-  return apiClient<ProductoDashboard[]>('/productos')
+export const api = {
+  get:    <T = unknown>(path: string, opts?: ApiOptions) => apiFetch<T>(path, { ...opts, method: 'GET' }),
+  post:   <T = unknown>(path: string, body?: unknown, opts?: ApiOptions) => apiFetch<T>(path, { ...opts, method: 'POST', body }),
+  patch:  <T = unknown>(path: string, body?: unknown, opts?: ApiOptions) => apiFetch<T>(path, { ...opts, method: 'PATCH', body }),
+  delete: <T = unknown>(path: string, body?: unknown, opts?: ApiOptions) => apiFetch<T>(path, { ...opts, method: 'DELETE', body }),
 }
