@@ -5,7 +5,7 @@ import s from './page.module.css'
 import Turnstile from './Turnstile'
 import GoogleAutofill from './GoogleAutofill'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''
 const GOOGLE_CLIENT_ID  = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
 

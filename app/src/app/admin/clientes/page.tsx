@@ -5,7 +5,7 @@ import { apiClient } from '@/lib/api';
 import NuevoClienteModal from '@/components/admin/clientes/NuevoClienteModal';
 import styles from './clientes.module.css';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com';
 
 interface Cliente {
   id: string;

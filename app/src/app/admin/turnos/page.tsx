@@ -16,7 +16,7 @@ import TurnoDetalle from '@/components/admin/turnos/TurnoDetalle';
 import NuevoTurnoModal from '@/components/admin/turnos/NuevoTurnoModal';
 import styles from './turnos.module.css';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com';
 
 type Vista = 'semana' | 'dia';
 

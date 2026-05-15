@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import styles from './comprobantes.module.css';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com';
 
 interface Comprobante {
   id: string;

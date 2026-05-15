@@ -273,7 +273,7 @@ export async function ventasRoutes(app: FastifyInstance) {
   // Ejecutar una sola vez en el servidor después del deploy para corregir datos históricos.
   app.post('/backfill-numeros', async (request, reply) => {
     const secret = (request.query as any).secret
-    if (secret !== (process.env.BACKFILL_SECRET ?? 'delfina-backfill-2025')) {
+    if (secret !== (process.env.BACKFILL_SECRET ?? 'salud-backfill-2026')) {
       return reply.status(403).send({ error: 'Forbidden' })
     }
 

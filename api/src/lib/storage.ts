@@ -9,17 +9,17 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 
 export const s3 = new S3Client({
-  endpoint:  process.env.MINIO_ENDPOINT ?? 'http://minio-delfina:9000',
+  endpoint:  process.env.S3_ENDPOINT ?? process.env.MINIO_ENDPOINT ?? 'http://minio-salud:9000',
   region:    'us-east-1',
   forcePathStyle: true,
   credentials: {
-    accessKeyId:     process.env.MINIO_ACCESS_KEY  ?? 'minioadmin',
-    secretAccessKey: process.env.MINIO_SECRET_KEY  ?? 'minioadmin',
+    accessKeyId:     process.env.S3_ACCESS_KEY ?? process.env.MINIO_ACCESS_KEY ?? 'minioadmin',
+    secretAccessKey: process.env.S3_SECRET_KEY ?? process.env.MINIO_SECRET_KEY ?? 'minioadmin',
   },
 })
 
-export const BUCKET     = process.env.MINIO_BUCKET     ?? 'delfina'
-export const PUBLIC_URL = process.env.MINIO_PUBLIC_URL ?? 'https://storage-delfina.fluxtic.com'
+export const BUCKET     = process.env.S3_BUCKET     ?? process.env.MINIO_BUCKET     ?? 'salud'
+export const PUBLIC_URL = process.env.S3_PUBLIC_ENDPOINT ?? process.env.MINIO_PUBLIC_URL ?? 'https://storage-salud.fluxtic.com'
 
 const CONTENT_TYPES: Record<string, string> = {
   pdf:  'application/pdf',

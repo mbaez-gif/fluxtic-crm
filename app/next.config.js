@@ -3,13 +3,12 @@ const nextConfig = {
   output: 'standalone',
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'storage-delfina.fluxtic.com' },
-      { protocol: 'https', hostname: 'd2r9epyceweg5n.cloudfront.net' },
+      { protocol: 'https', hostname: 'storage-salud.fluxtic.com' },
     ],
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['admin-delfina.fluxtic.com', 'delfinapaz.fluxtic.com', 'localhost:3000'],
+      allowedOrigins: ['admin-salud.fluxtic.com', 'portal-salud.fluxtic.com', 'localhost:3000'],
     },
   },
   async redirects() {

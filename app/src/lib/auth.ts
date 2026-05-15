@@ -2,7 +2,7 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
-const API_URL = process.env.INTERNAL_API_URL || 'http://api-delfina:3001'
+const API_URL = process.env.INTERNAL_API_URL || 'http://api-salud:3001'
 
 export const authOptions: NextAuthOptions = {
   providers: [

@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import s from './tablero.module.css'
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
 
 type EstadoTurno =
   | 'PENDIENTE'
@@ -119,7 +119,7 @@ function TableroKanbanContent() {
   useEffect(() => {
     const turnoIdParam = searchParams.get('turno')
     if (!turnoIdParam) return
-    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com')
+    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com')
     fetch(`${apiUrl}/turnos/${turnoIdParam}`)
       .then(r => r.ok ? r.json() : null)
       .then(json => {

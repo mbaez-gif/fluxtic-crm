@@ -30,7 +30,7 @@ export default function ConfiguracionPage() {
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null)
   const [toastMsg, setToastMsg] = useState('')
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
 
   // Config negocio
   const [negocio, setNegocio] = useState({
@@ -81,7 +81,7 @@ export default function ConfiguracionPage() {
   const cargarUsuarios = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch((process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com') + '/usuarios')
+      const res = await fetch((process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com') + '/usuarios')
       if (!res.ok) throw new Error('Error al cargar usuarios')
       const data = await res.json()
       const lista: Usuario[] = Array.isArray(data) ? data : data.data ?? []
@@ -143,7 +143,7 @@ export default function ConfiguracionPage() {
       onConfirm: async () => {
         setConfirm(null)
         try {
-          const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com')}/usuarios/${u.id}`, {
+          const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com')}/usuarios/${u.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ activo: !u.activo }),
@@ -327,9 +327,7 @@ export default function ConfiguracionPage() {
           <div className={styles.sectionBody}>
             {[
               { label: 'WhatsApp Cloud API', sub: 'Número dedicado · Templates activos', on: true },
-              { label: 'Instagram Graph API', sub: '@delfinapaz.ok · DMs y comentarios', on: true },
-              { label: 'Tienda Nube', sub: 'Webhooks activos · Stock sincronizado', on: true },
-              { label: 'n8n Automatizaciones', sub: 'n8n-delfina.fluxtic.com', on: true },
+              { label: 'n8n Automatizaciones', sub: 'n8n-salud.fluxtic.com', on: true },
             ].map((item, i) => (
               <IntegrationRow key={i} label={item.label} sub={item.sub} defaultOn={item.on} />
             ))}

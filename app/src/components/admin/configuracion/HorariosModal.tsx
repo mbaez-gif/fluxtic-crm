@@ -29,7 +29,7 @@ const DIAS = [
   { idx: 0, label: 'Domingo' },
 ]
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
 
 export default function HorariosModal({ open, usuario, onClose, onGuardado }: Props) {
   const [bloques, setBloques] = useState<HorarioBloque[]>([])

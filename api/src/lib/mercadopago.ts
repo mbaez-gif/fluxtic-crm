@@ -9,7 +9,7 @@
  *
  * Variables opcionales:
  *   MERCADOPAGO_WEBHOOK_SECRET — para validar firma de webhooks
- *   MERCADOPAGO_NOTIFICATION_URL — URL del webhook (default: https://api-delfina.fluxtic.com/webhooks/mercadopago)
+ *   MERCADOPAGO_NOTIFICATION_URL — URL del webhook (default: https://api-salud.fluxtic.com/webhooks/mercadopago)
  *   MERCADOPAGO_SUCCESS_URL / PENDING_URL / FAILURE_URL — URLs de retorno
  */
 
@@ -35,16 +35,16 @@ export const paymentClient = new Payment(mpClient)
 export const MP_CONFIG = {
   notificationUrl:
     process.env.MERCADOPAGO_NOTIFICATION_URL ||
-    'https://api-delfina.fluxtic.com/webhooks/mercadopago',
+    'https://api-salud.fluxtic.com/webhooks/mercadopago',
   successUrl:
     process.env.MERCADOPAGO_SUCCESS_URL ||
-    'https://admin-delfina.fluxtic.com/pago/success',
+    'https://admin-salud.fluxtic.com/pago/success',
   pendingUrl:
     process.env.MERCADOPAGO_PENDING_URL ||
-    'https://admin-delfina.fluxtic.com/pago/pending',
+    'https://admin-salud.fluxtic.com/pago/pending',
   failureUrl:
     process.env.MERCADOPAGO_FAILURE_URL ||
-    'https://admin-delfina.fluxtic.com/pago/failure',
+    'https://admin-salud.fluxtic.com/pago/failure',
   webhookSecret: process.env.MERCADOPAGO_WEBHOOK_SECRET,
   isConfigured: !!accessToken,
 }

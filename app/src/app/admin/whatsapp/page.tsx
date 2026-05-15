@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import styles from './whatsapp.module.css'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
 
 const N8N_WORKFLOWS = [
   { id: '6f3tybcMJr2mjkMP', nombre: 'WA — Recordatorio de Turno 24hs',  tipo: 'Recordatorio' },
@@ -291,7 +291,7 @@ export default function WhatsAppPage() {
             <div className={styles.sectionBody}>
               <div className={styles.workflowLinks}>
                 {N8N_WORKFLOWS.map(wf => (
-                  <a key={wf.id} href={`https://n8n-delfina.fluxtic.com/workflow/${wf.id}`}
+                  <a key={wf.id} href={`https://n8n-salud.fluxtic.com/workflow/${wf.id}`}
                     target="_blank" rel="noopener noreferrer" className={styles.workflowLink}
                     style={{ textDecoration: 'none' }}>
                     <div>

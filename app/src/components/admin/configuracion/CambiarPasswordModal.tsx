@@ -45,7 +45,7 @@ export default function CambiarPasswordModal({ open, usuario, esSelf, onClose, o
       const body: Record<string, string> = { password_nueva: form.nueva }
       if (esSelf) body.password_actual = form.actual
 
-      const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com')}/usuarios/${usuario.id}/password`, {
+      const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com')}/usuarios/${usuario.id}/password`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

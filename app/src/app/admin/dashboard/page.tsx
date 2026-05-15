@@ -9,7 +9,7 @@ import {
 import styles from './dashboard.module.css'
 import DashboardTabs from './DashboardTabs'
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
 
 type Periodo = 'hoy' | 'semana' | 'mes' | 'anio'
 

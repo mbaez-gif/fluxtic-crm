@@ -1,16 +1,16 @@
 version: "3.8"
 
 # ──────────────────────────────────────────────────────────────────
-# Stack Delfina Paz — Fluxtic Cloud Administrado
+# Stack Fluxtic Salud — Fluxtic Cloud Administrado
 # Traefik global: red "proxy" / certresolver "le"
 # ──────────────────────────────────────────────────────────────────
 
 services:
 
   # ── PostgreSQL dedicado ────────────────────────────────────────
-  postgres-delfina:
+  postgres-salud:
     image: postgres:16-alpine
-    container_name: postgres-delfina
+    container_name: postgres-salud
     restart: unless-stopped
     environment:
       POSTGRES_USER:     ${POSTGRES_USER}
@@ -21,24 +21,23 @@ services:
       - ./postgres/data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
-      - delfina_internal
+      - salud_internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout:  5s
       retries:  5
-    # Sin exposición externa — solo red interna
 
   # ── Redis dedicado ─────────────────────────────────────────────
-  redis-delfina:
+  redis-salud:
     image: redis:7-alpine
-    container_name: redis-delfina
+    container_name: redis-salud
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     volumes:
       - ./redis/data:/data
     networks:
-      - delfina_internal
+      - salud_internal
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -46,37 +45,32 @@ services:
       retries:  5
 
   # ── n8n dedicado (instancia del cliente) ───────────────────────
-  n8n-delfina:
+  n8n-salud:
     image: n8nio/n8n:latest
-    container_name: n8n-delfina
+    container_name: n8n-salud
     restart: unless-stopped
     environment:
-      N8N_HOST:               n8n-delfina.fluxtic.com
+      N8N_HOST:               n8n-salud.fluxtic.com
       N8N_PORT:               "5678"
       N8N_PROTOCOL:           https
-      WEBHOOK_URL:            https://n8n-delfina.fluxtic.com/
-      N8N_EDITOR_BASE_URL:    https://n8n-delfina.fluxtic.com
+      WEBHOOK_URL:            https://n8n-salud.fluxtic.com/
+      N8N_EDITOR_BASE_URL:    https://n8n-salud.fluxtic.com
       N8N_PROXY_HOPS:         "1"
-      # Base de datos: n8n usa su propia base delfina_n8n
       DB_TYPE:                postgresdb
-      DB_POSTGRESDB_HOST:     postgres-delfina
+      DB_POSTGRESDB_HOST:     postgres-salud
       DB_POSTGRESDB_PORT:     "5432"
       DB_POSTGRESDB_DATABASE: ${N8N_DB}
       DB_POSTGRESDB_USER:     ${POSTGRES_USER}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_POSTGRESDB_SCHEMA:   public
-      # Encriptación y auth
       N8N_ENCRYPTION_KEY:         ${N8N_ENCRYPTION_KEY}
       N8N_BASIC_AUTH_ACTIVE:      "true"
       N8N_BASIC_AUTH_USER:        ${N8N_USER}
       N8N_BASIC_AUTH_PASSWORD:    ${N8N_PASSWORD}
-      # Timezone Argentina
       GENERIC_TIMEZONE: America/Argentina/Buenos_Aires
       TZ:               America/Argentina/Buenos_Aires
-      # Variables de entorno disponibles en workflows
       N8N_VARS_WA_PHONE_NUMBER_ID: ${WA_PHONE_NUMBER_ID}
-      N8N_VARS_API_BASE_URL:       https://api-delfina.fluxtic.com
-      # Ejecuciones
+      N8N_VARS_API_BASE_URL:       https://api-salud.fluxtic.com
       EXECUTIONS_DATA_SAVE_ON_ERROR:   all
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: last
       EXECUTIONS_DATA_MAX_AGE:         "720"
@@ -85,23 +79,23 @@ services:
       - ./n8n/data:/home/node/.n8n
     networks:
       - proxy
-      - delfina_internal
+      - salud_internal
       - outbound
     depends_on:
-      postgres-delfina:
+      postgres-salud:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.n8n-delfina.rule=Host(`n8n-delfina.fluxtic.com`)"
-      - "traefik.http.routers.n8n-delfina.entrypoints=websecure"
-      - "traefik.http.routers.n8n-delfina.tls.certresolver=le"
-      - "traefik.http.services.n8n-delfina.loadbalancer.server.port=5678"
+      - "traefik.http.routers.n8n-salud.rule=Host(`n8n-salud.fluxtic.com`)"
+      - "traefik.http.routers.n8n-salud.entrypoints=websecure"
+      - "traefik.http.routers.n8n-salud.tls.certresolver=le"
+      - "traefik.http.services.n8n-salud.loadbalancer.server.port=5678"
 
   # ── MinIO dedicado ─────────────────────────────────────────────
-  minio-delfina:
+  minio-salud:
     image: minio/minio:latest
-    container_name: minio-delfina
+    container_name: minio-salud
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -111,38 +105,43 @@ services:
       - ./minio/data:/data
     networks:
       - proxy
-      - delfina_internal
+      - salud_internal
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      # API S3
-      - "traefik.http.routers.storage-delfina.rule=Host(`storage-delfina.fluxtic.com`)"
-      - "traefik.http.routers.storage-delfina.entrypoints=websecure"
-      - "traefik.http.routers.storage-delfina.tls.certresolver=le"
-      - "traefik.http.routers.storage-delfina.service=storage-delfina-svc"
-      - "traefik.http.services.storage-delfina-svc.loadbalancer.server.port=9000"
-      # Consola web
-      - "traefik.http.routers.minio-delfina.rule=Host(`minio-delfina.fluxtic.com`)"
-      - "traefik.http.routers.minio-delfina.entrypoints=websecure"
-      - "traefik.http.routers.minio-delfina.tls.certresolver=le"
-      - "traefik.http.routers.minio-delfina.service=minio-delfina-svc"
-      - "traefik.http.services.minio-delfina-svc.loadbalancer.server.port=9001"
+      - "traefik.http.routers.storage-salud.rule=Host(`storage-salud.fluxtic.com`)"
+      - "traefik.http.routers.storage-salud.entrypoints=websecure"
+      - "traefik.http.routers.storage-salud.tls.certresolver=le"
+      - "traefik.http.routers.storage-salud.service=storage-salud-svc"
+      - "traefik.http.services.storage-salud-svc.loadbalancer.server.port=9000"
+      - "traefik.http.routers.minio-salud.rule=Host(`minio-salud.fluxtic.com`)"
+      - "traefik.http.routers.minio-salud.entrypoints=websecure"
+      - "traefik.http.routers.minio-salud.tls.certresolver=le"
+      - "traefik.http.routers.minio-salud.service=minio-salud-svc"
+      - "traefik.http.services.minio-salud-svc.loadbalancer.server.port=9001"
 
   # ── API Fastify + Prisma ───────────────────────────────────────
-  api-delfina:
+  api-salud:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: api-delfina
+    container_name: api-salud
     restart: unless-stopped
     environment:
       NODE_ENV:            production
       PORT:                "3001"
-      DATABASE_URL:        postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-delfina:5432/delfina_app
-      REDIS_URL:           redis://:${REDIS_PASSWORD}@redis-delfina:6379
+      DATABASE_URL:        postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-salud:5432/salud_app
+      REDIS_URL:           redis://:${REDIS_PASSWORD}@redis-salud:6379
       INTERNAL_API_TOKEN:  ${INTERNAL_API_TOKEN}
-      CORS_ORIGINS:        https://admin-delfina.fluxtic.com,https://delfinapaz.fluxtic.com
+      CORS_ORIGINS:        https://admin-salud.fluxtic.com,https://portal-salud.fluxtic.com
       N8N_WEBHOOK_BASE_URL: ${N8N_WEBHOOK_BASE_URL}
+      # MinIO / storage clínico
+      S3_ENDPOINT:         http://minio-salud:9000
+      S3_PUBLIC_ENDPOINT:  https://storage-salud.fluxtic.com
+      S3_ACCESS_KEY:       ${MINIO_USER}
+      S3_SECRET_KEY:       ${MINIO_PASSWORD}
+      S3_BUCKET_HC:        historia-clinica
+      # Pagos (heredado, copagos opcionales)
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN}
       MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY}
       MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET}
@@ -150,86 +149,74 @@ services:
       MERCADOPAGO_SUCCESS_URL: ${MERCADOPAGO_SUCCESS_URL}
       MERCADOPAGO_PENDING_URL: ${MERCADOPAGO_PENDING_URL}
       MERCADOPAGO_FAILURE_URL: ${MERCADOPAGO_FAILURE_URL}
-      # WhatsApp
+      # Comunicaciones (heredado)
       WA_PHONE_NUMBER_ID:      ${WA_PHONE_NUMBER_ID}
       WA_ACCESS_TOKEN:         ${WA_ACCESS_TOKEN}
       WA_WEBHOOK_VERIFY_TOKEN: ${WA_WEBHOOK_VERIFY_TOKEN}
-      # Instagram (Sprint 3)
-      IG_WEBHOOK_VERIFY_TOKEN: ${IG_WEBHOOK_VERIFY_TOKEN}
-      # Cloudflare Turnstile (anti-bot del wizard publico).
-      # Si esta vacia, se omite la validacion (modo dev).
+      # Anti-bot del portal público
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
-      # Timezone Argentina (importante para slots y horarios de profesionales)
       TZ: America/Argentina/Buenos_Aires
     depends_on:
-      postgres-delfina:
+      postgres-salud:
         condition: service_healthy
     networks:
       - proxy
-      - delfina_internal
+      - salud_internal
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.api-delfina.rule=Host(`api-delfina.fluxtic.com`)"
-      - "traefik.http.routers.api-delfina.entrypoints=websecure"
-      - "traefik.http.routers.api-delfina.tls.certresolver=le"
-      - "traefik.http.services.api-delfina.loadbalancer.server.port=3001"
+      - "traefik.http.routers.api-salud.rule=Host(`api-salud.fluxtic.com`)"
+      - "traefik.http.routers.api-salud.entrypoints=websecure"
+      - "traefik.http.routers.api-salud.tls.certresolver=le"
+      - "traefik.http.services.api-salud.loadbalancer.server.port=3001"
 
-  # ── App Next.js — Panel Admin ──────────────────────────────────
-  admin-delfina:
+  # ── App Next.js — Panel Admin + Portal Paciente ────────────────
+  admin-salud:
     build:
       context: ./app
       dockerfile: Dockerfile
       args:
-        # Las NEXT_PUBLIC_* deben pasarse en BUILD TIME (no runtime) porque
-        # Next.js las compila al bundle. Si cambias estas vars hay que rebuildear
-        # la imagen: `docker compose build admin-delfina`.
-        NEXT_PUBLIC_API_URL:            https://api-delfina.fluxtic.com
+        NEXT_PUBLIC_API_URL:            https://api-salud.fluxtic.com
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY}
         NEXT_PUBLIC_GOOGLE_CLIENT_ID:   ${GOOGLE_CLIENT_ID}
-    container_name: admin-delfina
+    container_name: admin-salud
     restart: unless-stopped
     environment:
       NODE_ENV:              production
-      NEXTAUTH_URL:          https://admin-delfina.fluxtic.com
+      NEXTAUTH_URL:          https://admin-salud.fluxtic.com
       NEXTAUTH_SECRET:       ${NEXTAUTH_SECRET}
-      NEXT_PUBLIC_API_URL:   https://api-delfina.fluxtic.com
-      # Si estan vacias, el wizard publico omite Turnstile / boton Google.
+      NEXT_PUBLIC_API_URL:   https://api-salud.fluxtic.com
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY}
       NEXT_PUBLIC_GOOGLE_CLIENT_ID:   ${GOOGLE_CLIENT_ID}
-      INTERNAL_API_URL:      http://api-delfina:3001
+      INTERNAL_API_URL:      http://api-salud:3001
       INTERNAL_API_TOKEN:    ${INTERNAL_API_TOKEN}
     depends_on:
-      - api-delfina
+      - api-salud
     networks:
       - proxy
-      - delfina_internal
+      - salud_internal
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
       # Admin panel
-      - "traefik.http.routers.admin-delfina.rule=Host(`admin-delfina.fluxtic.com`)"
-      - "traefik.http.routers.admin-delfina.service=admin-delfina"
-      - "traefik.http.routers.admin-delfina.entrypoints=websecure"
-      - "traefik.http.routers.admin-delfina.tls.certresolver=le"
-      - "traefik.http.services.admin-delfina.loadbalancer.server.port=3000"
-      # Sitio público de reservas (delfinapaz.fluxtic.com)
-      - "traefik.http.routers.public-delfina.rule=Host(`delfinapaz.fluxtic.com`)"
-      - "traefik.http.routers.public-delfina.service=admin-delfina"
-      - "traefik.http.routers.public-delfina.entrypoints=websecure"
-      - "traefik.http.routers.public-delfina.tls.certresolver=le"
-      - "traefik.http.services.public-delfina.loadbalancer.server.port=3000"
+      - "traefik.http.routers.admin-salud.rule=Host(`admin-salud.fluxtic.com`)"
+      - "traefik.http.routers.admin-salud.service=admin-salud"
+      - "traefik.http.routers.admin-salud.entrypoints=websecure"
+      - "traefik.http.routers.admin-salud.tls.certresolver=le"
+      - "traefik.http.services.admin-salud.loadbalancer.server.port=3000"
+      # Portal del paciente
+      - "traefik.http.routers.portal-salud.rule=Host(`portal-salud.fluxtic.com`)"
+      - "traefik.http.routers.portal-salud.service=admin-salud"
+      - "traefik.http.routers.portal-salud.entrypoints=websecure"
+      - "traefik.http.routers.portal-salud.tls.certresolver=le"
+      - "traefik.http.services.portal-salud.loadbalancer.server.port=3000"
 
 networks:
   proxy:
     external: true          # Red global de Traefik — ya existe
-  delfina_internal:
-    name: delfina_internal
+  salud_internal:
+    name: salud_internal
     driver: bridge
     internal: true          # Sin acceso a internet directo
-  
   outbound:
-    driver: bridge 
-    
-
-
+    driver: bridge

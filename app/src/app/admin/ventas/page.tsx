@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import s from './ventas.module.css'
 import { usePermisos } from '@/hooks/usePermisos'
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
 
 interface ItemVenta {
   id: string

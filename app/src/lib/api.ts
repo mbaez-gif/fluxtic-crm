@@ -1,16 +1,14 @@
 // app/src/lib/api.ts
 // Cliente centralizado para llamadas a la API Fastify
 //
-// Server Components  → INTERNAL_API_URL  (http://api-delfina:3001)
-// Client Components  → NEXT_PUBLIC_API_URL (https://api-delfina.fluxtic.com)
+// Server Components  → INTERNAL_API_URL  (http://api-salud:3001)
+// Client Components  → NEXT_PUBLIC_API_URL (https://api-salud.fluxtic.com)
 
 function getApiUrl(): string {
-  // En el browser siempre usamos la URL pública
   if (typeof window !== 'undefined') {
-    return process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+    return process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
   }
-  // En el servidor (SSR / Server Components) usamos la URL interna de Docker
-  return process.env.INTERNAL_API_URL || 'http://api-delfina:3001'
+  return process.env.INTERNAL_API_URL || 'http://api-salud:3001'
 }
 
 // ── Tipos para el dashboard ───────────────────────────────────────

@@ -4,7 +4,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import type { PrismaClient } from '@prisma/client'
 
 const s3 = new S3Client({
-  endpoint:         process.env.MINIO_ENDPOINT ?? 'http://minio-delfina:9000',
+  endpoint:         process.env.MINIO_ENDPOINT ?? 'http://minio-salud:9000',
   region:           'us-east-1',
   credentials: {
     accessKeyId:     process.env.MINIO_ACCESS_KEY  ?? 'minioadmin',
@@ -201,7 +201,7 @@ export function subirPdfBackground(prisma: PrismaClient, id: string, buffer: Buf
   const key = `comprobantes/${filename}`
   s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: buffer, ContentType: 'application/pdf' }))
     .then(() => {
-      const base = process.env.MINIO_PUBLIC_URL ?? 'https://storage-delfina.fluxtic.com'
+      const base = process.env.MINIO_PUBLIC_URL ?? 'https://storage-salud.fluxtic.com'
       const url  = `${base}/${BUCKET}/${key}`
       return prisma.venta.update({ where: { id }, data: { pdf_url: url } })
     })

@@ -99,4 +99,4 @@ export interface ItemVenta {
   subtotal: number
 }
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-delfina.fluxtic.com'
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api-salud.fluxtic.com'
