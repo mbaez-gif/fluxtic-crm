@@ -1,0 +1,129 @@
+/* globals.css — agregar al final del archivo existente */
+/* INSTRUCCIÓN: pegar este bloque al FINAL de app/src/styles/globals.css */
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE GLOBAL — mobile-first fixes
+══════════════════════════════════════════════════════════ */
+
+/* Viewport meta ya debería estar en layout.tsx, esto es seguro */
+* { box-sizing: border-box; }
+
+@media (max-width: 767px) {
+
+  /* KPI grids: 2 columnas en mobile */
+  .kpi-grid,
+  [class*="kpiGrid"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Dashboard grid: columna única */
+  [class*="dashGrid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Quick actions: 2 columnas */
+  [class*="qaGrid"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Tablas: scroll horizontal */
+  [class*="tblWrap"],
+  [class*="tbl-wrap"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Formularios: una columna */
+  [class*="grid2"],
+  [class*="formGrid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Modales: full width en mobile */
+  [class*="modal"] {
+    max-width: calc(100vw - 24px) !important;
+    max-height: 92vh !important;
+    margin: 0 12px;
+  }
+
+  /* Panel detalle: full screen en mobile */
+  [class*="panel"] {
+    width: 100% !important;
+  }
+
+  /* Toolbar: wrap */
+  [class*="toolbar"],
+  [class*="controls"] {
+    flex-wrap: wrap;
+  }
+
+  /* Calendario semanal: scroll horizontal */
+  [class*="wrap"][class*="week"],
+  [class*="weekGrid"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  [class*="body"][class*="week"] {
+    min-width: 500px;
+  }
+
+  [class*="header"][class*="week"] {
+    min-width: 500px;
+  }
+
+  /* Stock grid: 2 columnas */
+  [class*="stockGrid"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* IG metrics: 2 columnas */
+  [class*="igMetrics"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Workflow grid: 1 columna */
+  [class*="wfGrid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Servicios grid: 1 columna */
+  [class*="servicios"] [class*="grid"],
+  [class*="ig-posts-grid"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Cfg grid: 1 columna */
+  [class*="cfgGrid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Semana nav: más compacto */
+  [class*="weekTitle"] {
+    font-size: 13px !important;
+    min-width: 120px !important;
+  }
+
+  /* Botones de filtro: wrap natural */
+  [class*="filtros"] {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* KPI: 1 columna en pantallas muy chicas */
+  .kpi-grid,
+  [class*="kpiGrid"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Quick actions: 2x2 está bien */
+  [class*="stockGrid"] {
+    grid-template-columns: 1fr !important;
+  }
+}

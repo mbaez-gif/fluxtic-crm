@@ -1,0 +1,3 @@
+-- Baseline de esquema existente antes del sprint Mercado Pago.
+-- No ejecutar cambios SQL. Esta migración se marca como aplicada
+-- porque la base delfina_app ya tiene el esquema inicial creado.

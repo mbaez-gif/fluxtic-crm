@@ -1,0 +1,111 @@
+/* ═══════════════════════════════════════════════
+   DELFINA PAZ · DESIGN TOKENS
+   app/src/styles/globals.css
+═══════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@300;400&display=swap');
+
+:root {
+  --bg:         #F9F7F4;
+  --bg-2:       #F3F0EC;
+  --bg-3:       #EDE9E3;
+  --surface:    #FFFFFF;
+  --noir:       #1C1814;
+  --noir-2:     #3A342E;
+  --muted:      #8C847A;
+  --muted-2:    #B8B0A6;
+  --border:     #E4DDD6;
+  --border-2:   #EDE9E3;
+  --blush:      #C8A882;
+  --blush-l:    #F0E8DC;
+  --blush-d:    #A68660;
+  --rose:       #D4957A;
+  --rose-l:     #FAF0EC;
+  --sage:       #8BA888;
+  --sage-l:     #EBF2EA;
+  --gold:       #B89860;
+  --gold-l:     #F5EDD8;
+  --error:      #C45C5C;
+  --error-l:    #FAEAEA;
+  --font-d:     'Cormorant Garamond', Georgia, serif;
+  --font-b:     'DM Sans', sans-serif;
+  --font-m:     'DM Mono', monospace;
+  --nav-w:      230px;
+  --top-h:      56px;
+  --r-sm:       6px;
+  --r-md:       10px;
+  --r-lg:       16px;
+  --shadow-sm:  0 1px 3px rgba(28,24,20,.06);
+  --shadow-md:  0 4px 16px rgba(28,24,20,.08);
+  --shadow-lg:  0 12px 40px rgba(28,24,20,.12);
+}
+
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-b);
+  background: var(--bg);
+  color: var(--noir);
+}
+
+button { cursor: pointer; font-family: var(--font-b); }
+input, select, textarea { font-family: var(--font-b); }
+a { text-decoration: none; color: inherit; }
+ul { list-style: none; }
+
+*:focus-visible {
+  outline: 2px solid var(--blush);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.status-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.s-confirmado { background: var(--sage-l);  color: var(--sage); }
+.s-pendiente  { background: var(--gold-l);  color: var(--gold); }
+.s-en-curso   { background: var(--blush-l); color: var(--blush-d); }
+.s-completado { background: var(--bg-3);    color: var(--muted); }
+.s-cancelado  { background: var(--error-l); color: var(--error); }
+
+.seg-chip {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 20px;
+  display: inline-block;
+}
+.seg-final { background: var(--blush-l); color: var(--blush-d); }
+.seg-mayor { background: var(--sage-l);  color: var(--sage); }
+.seg-vip   { background: var(--gold-l);  color: var(--gold); }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-auto  { margin-left: auto; }

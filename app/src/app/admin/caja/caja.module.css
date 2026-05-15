@@ -1,0 +1,131 @@
+.page { position: relative; }
+.pageHeader { margin-bottom: 24px; }
+.pageTitle { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 28px; font-weight: 300; color: #1C1814; margin-bottom: 4px; }
+.pageSub { font-size: 12px; color: #8C847A; }
+
+.layout { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
+.leftPanel { display: flex; flex-direction: column; gap: 14px; }
+.rightPanel { position: sticky; top: 0; }
+
+.card { background: #fff; border: 1px solid #E4DDD6; border-radius: 10px; overflow: visible; }
+.cardHead { padding: 12px 16px; border-bottom: 1px solid #EDE9E3; display: flex; align-items: center; justify-content: space-between; border-radius: 10px 10px 0 0; }
+.cardTitle { font-family: 'Cormorant Garamond', serif; font-size: 15px; font-weight: 400; color: #1C1814; }
+.cardBody { padding: 14px 16px; }
+
+/* Cliente */
+.clienteSeleccionado { display: flex; align-items: center; gap: 10px; }
+.clienteAv { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #F0E8DC, #EDE9E3); display: flex; align-items: center; justify-content: center; font-family: 'Cormorant Garamond', serif; font-size: 15px; color: #A68660; flex-shrink: 0; }
+.clienteNombre { font-size: 13px; font-weight: 500; color: #1C1814; }
+.clienteTel { font-size: 11px; color: #8C847A; }
+.clearBtn { margin-left: auto; width: 24px; height: 24px; border: none; background: none; color: #8C847A; cursor: pointer; border-radius: 4px; font-size: 12px; }
+.clearBtn:hover { background: #F3F0EC; }
+
+/* Dropdown cliente — FIX: z-index alto y overflow visible */
+.clienteBusqueda { position: relative; }
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #E4DDD6;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(28,24,20,0.15);
+  z-index: 9999;
+  overflow: hidden;
+}
+.dropItem {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.1s;
+}
+.dropItem:hover { background: #F9F7F4; }
+.dropItem + .dropItem { border-top: 1px solid #EDE9E3; }
+.dropAv { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #F0E8DC, #EDE9E3); display: flex; align-items: center; justify-content: center; font-family: 'Cormorant Garamond', serif; font-size: 13px; color: #A68660; flex-shrink: 0; }
+.dropNombre { font-size: 13px; font-weight: 500; color: #1C1814; display: block; }
+.dropTel { font-size: 11px; color: #8C847A; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; }
+.tab, .tabActive { padding: 5px 14px; border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; border: none; transition: all 0.15s; }
+.tab { background: transparent; color: #8C847A; }
+.tab:hover { background: #F3F0EC; }
+.tabActive { background: #1C1814; color: #FAF8F5; }
+
+/* Items grid */
+.itemsGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.itemCard { background: #F9F7F4; border: 1px solid #EDE9E3; border-radius: 8px; padding: 10px; cursor: pointer; transition: all 0.15s; }
+.itemCard:hover { border-color: #C8A882; background: #F0E8DC; }
+.itemNombre { font-size: 11.5px; font-weight: 500; color: #1C1814; margin-bottom: 3px; }
+.itemPrecio { font-size: 11px; color: #A68660; font-weight: 500; }
+.itemStock { font-size: 10px; color: #B8B0A6; margin-top: 2px; }
+.emptyItems { grid-column: 1/-1; text-align: center; color: #B8B0A6; font-size: 12px; padding: 16px; }
+
+/* Carrito */
+.emptyCart { text-align: center; padding: 24px; color: #B8B0A6; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.emptyCart div:first-child { font-size: 28px; }
+.carritoItems { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.carritoItem { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #EDE9E3; }
+.carritoItem:last-child { border-bottom: none; }
+.carritoInfo { flex: 1; min-width: 0; }
+.carritoNombre { font-size: 12px; font-weight: 500; color: #1C1814; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.carritoTipo { font-size: 10px; color: #B8B0A6; }
+.carritoControls { display: flex; align-items: center; gap: 4px; }
+.qtyBtn { width: 22px; height: 22px; border-radius: 4px; border: 1px solid #E4DDD6; background: transparent; cursor: pointer; font-size: 14px; line-height: 1; color: #3A342E; display: flex; align-items: center; justify-content: center; }
+.qtyBtn:hover { background: #F3F0EC; }
+.qty { font-size: 13px; font-weight: 500; min-width: 20px; text-align: center; }
+.carritoSubtotal { font-size: 12.5px; font-weight: 500; color: #1C1814; min-width: 70px; text-align: right; }
+.removeBtn { width: 20px; height: 20px; border: none; background: none; color: #B8B0A6; cursor: pointer; font-size: 11px; border-radius: 3px; }
+.removeBtn:hover { color: #C45C5C; background: #FAEAEA; }
+.clearAllBtn { font-size: 11px; color: #C45C5C; background: none; border: none; cursor: pointer; }
+
+/* Totales */
+.totales { border-top: 1px solid #E4DDD6; padding-top: 12px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+.totalesRow { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: #8C847A; }
+.totalRow { border-top: 1px solid #E4DDD6; padding-top: 10px; margin-top: 4px; font-size: 14px; font-weight: 500; color: #1C1814; }
+.totalVal { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 300; color: #1C1814; }
+.descuentoWrap { display: flex; align-items: center; gap: 4px; }
+.descuentoInp { width: 50px; padding: 3px 8px; border: 1px solid #E4DDD6; border-radius: 4px; font-size: 12px; text-align: center; outline: none; font-family: 'DM Sans', sans-serif; }
+.descuentoInp:focus { border-color: #C8A882; }
+
+/* Medios de pago */
+.mediosPago { display: flex; flex-wrap: wrap; gap: 5px; }
+.medioPago, .medioPagoActive { padding: 5px 10px; border-radius: 5px; font-size: 11px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; border: 1px solid #E4DDD6; transition: all 0.15s; }
+.medioPago { background: transparent; color: #8C847A; }
+.medioPago:hover { background: #F3F0EC; }
+.medioPagoActive { background: #1C1814; color: #FAF8F5; border-color: #1C1814; }
+
+/* Form */
+.formGroup { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.formLabel { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8C847A; font-weight: 500; }
+.formSel, .formInp { padding: 8px 10px; border: 1px solid #E4DDD6; border-radius: 6px; background: #fff; font-size: 12.5px; color: #1C1814; font-family: 'DM Sans', sans-serif; outline: none; width: 100%; }
+.formSel:focus, .formInp:focus { border-color: #C8A882; }
+.formInp::placeholder { color: #B8B0A6; }
+
+.searchInp { width: 100%; padding: 8px 12px; border: 1px solid #E4DDD6; border-radius: 6px; background: #fff; font-size: 12.5px; color: #1C1814; outline: none; font-family: 'DM Sans', sans-serif; }
+.searchInp:focus { border-color: #C8A882; }
+.searchInp::placeholder { color: #B8B0A6; }
+
+.btnConfirmar { width: 100%; padding: 13px; border: none; border-radius: 8px; background: #1C1814; color: #FAF8F5; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.15s; margin-top: 4px; }
+.btnConfirmar:hover:not(:disabled) { background: #3A342E; }
+.btnConfirmar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.errorBanner { background: #FAEAEA; border: 1px solid #C45C5C; color: #C45C5C; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 10px; }
+
+/* Éxito */
+.successOverlay { position: fixed; inset: 0; background: rgba(28,24,20,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(4px); }
+.successBox { background: #fff; border-radius: 20px; padding: 40px 32px; text-align: center; box-shadow: 0 24px 64px rgba(28,24,20,0.2); min-width: 280px; animation: popIn 0.25s ease; }
+@keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+.successIcon { font-size: 48px; margin-bottom: 12px; }
+.successTitle { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 400; color: #1C1814; margin-bottom: 8px; }
+.successTotal { font-family: 'Cormorant Garamond', serif; font-size: 40px; font-weight: 300; color: #8BA888; }
+.successId { font-size: 12px; color: #B8B0A6; font-family: 'DM Mono', monospace; margin-top: 4px; }
+
+.btnPrimary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 24px; border: none; border-radius: 8px; background: #1C1814; color: #FAF8F5; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
+.btnPrimary:hover { background: #3A342E; }
+
+.toast { position: fixed; bottom: 28px; right: 28px; background: #1C1814; color: #FAF8F5; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(28,24,20,0.2); z-index: 9999; animation: toastIn 0.2s ease; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
