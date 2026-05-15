@@ -79,6 +79,7 @@ export interface ClientTenant {
 // ── ProvisioningJob ───────────────────────────────────────
 export type JobStatus =
   | 'PENDIENTE'
+  | 'QUEUED'                       // V2: encolado para el worker
   | 'EN_PROCESO'
   | 'COMPLETADO'
   | 'ERROR'
@@ -96,17 +97,19 @@ export type JobStep =
   | 'REGISTRANDO_INTEGRACIONES'
   | 'REGISTRANDO_WORKFLOWS'
   | 'COMPILANDO_INSTRUCCIONES_SSH'
-  // V2 / V3
-  | 'CREANDO_CARPETA'
-  | 'COPIANDO_TEMPLATE'
-  | 'DOCKER_NETWORK'
-  | 'DOCKER_COMPOSE_UP'
-  | 'PRISMA_GENERATE'
-  | 'PRISMA_MIGRATE'
-  | 'SEED'
-  | 'N8N_IMPORT_WORKFLOWS'
-  | 'HEALTHCHECKS'
+  // V2 — pasos ejecutados por el worker fluxtic-provisioner
+  | 'CLAIMING_JOB'
+  | 'PREPARING_FOLDER'
+  | 'WRITING_FILES'
+  | 'ENSURING_NETWORK'
+  | 'PULLING_IMAGES'
+  | 'STARTING_STACK'
+  | 'WAITING_HEALTH'
+  | 'RUNNING_MIGRATIONS'
+  | 'VERIFYING_ENDPOINT'
   | 'FINALIZADO'
+  // V3
+  | 'N8N_IMPORT_WORKFLOWS'
 
 export interface ProvisioningJob {
   id:              string
@@ -301,6 +304,10 @@ export interface CreateClientResponse {
   ok:           boolean
   clientId:     string
   jobId:        string
+  // 'manual': el operador ejecuta los comandos SSH listados abajo.
+  // 'worker': el job fue encolado y el worker fluxtic-provisioner lo
+  //           ejecuta. `manualSshCommands` viene vacío.
+  mode:         'manual' | 'worker'
   revealOnce: {
     adminEmail:        string
     adminPassword:     string

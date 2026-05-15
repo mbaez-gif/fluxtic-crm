@@ -29,6 +29,7 @@ import {
   markJobStarted,
   bumpJobStep,
   markJobFinished,
+  updateJob,
   appendLog,
   saveDomain,
   saveIntegration,
@@ -270,6 +271,40 @@ export async function provisionClient(opts: {
     createdById:    uid,
   })
 
+  // ── Modo: manual (V1) o worker (V2) ──
+  // En modo worker dejamos el job en QUEUED para que el daemon
+  // fluxtic-provisioner lo levante. En modo manual mantenemos la
+  // V1: comandos SSH + PENDING_MANUAL_EXECUTION.
+  const mode = (process.env.PROVISIONING_MODE === 'worker') ? 'worker' : 'manual'
+
+  if (mode === 'worker') {
+    await appendLog({
+      jobId, step: 'COMPILANDO_INSTRUCCIONES_SSH', level: 'success',
+      message: 'Bundle listo. Job encolado para el worker fluxtic-provisioner.',
+    })
+    // Pasos totales en modo worker: 9 del CRM + 9 del worker.
+    // El worker sumará a partir de completedSteps actual (= 9).
+    await updateJob(jobId, {
+      status:      'QUEUED',
+      currentStep: null,
+      totalSteps:  STEPS_V1.length - 1 + 9,
+    })
+    return {
+      ok:       true,
+      clientId,
+      jobId,
+      mode:     'worker',
+      revealOnce: {
+        adminEmail:       payload.users.adminEmail,
+        adminPassword:    secrets.adminTempPassword,
+        postgresPassword: secrets.postgresPassword,
+        n8nBasicAuthPass: secrets.n8nBasicAuthPass,
+        n8nEncryptionKey: secrets.n8nEncryptionKey,
+      },
+      manualSshCommands: [],
+    }
+  }
+
   const sshCommands = buildManualSshCommands({ naming })
   await appendLog({
     jobId, step: 'COMPILANDO_INSTRUCCIONES_SSH', level: 'success',
@@ -282,6 +317,7 @@ export async function provisionClient(opts: {
     ok:       true,
     clientId,
     jobId,
+    mode:     'manual',
     revealOnce: {
       adminEmail:       payload.users.adminEmail,
       adminPassword:    secrets.adminTempPassword,

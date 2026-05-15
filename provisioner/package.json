@@ -1,0 +1,23 @@
+{
+  "name": "fluxtic-provisioner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Worker daemon que ejecuta los jobs de provisionamiento de la consola Plataforma del CRM Fluxtic",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build":    "tsc",
+    "start":    "node dist/index.js",
+    "dev":      "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "execa":         "^9.4.0",
+    "firebase-admin": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node":  "^20.12.7",
+    "tsx":          "^4.8.2",
+    "typescript":   "^5.4.5"
+  }
+}

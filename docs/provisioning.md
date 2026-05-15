@@ -8,22 +8,22 @@ SSH al servidor.
 
 ## 1. Estado de esta entrega
 
-Esta primera entrega implementa la **Versión 1** descrita en la spec:
+**V1 — Modo manual** (default): wizard completo, persistencia, generación
+de `.env` y `docker-compose.yml`, comandos SSH para correr a mano.
 
-- Wizard completo (10 pasos).
-- Persistencia de cliente, dominios, integraciones, usuarios iniciales,
-  workflows, backups y job de provisionamiento en Firestore.
-- Generación en backend de `.env`, `docker-compose.yml` y `metadata.json`
-  del cliente.
-- Vista de **comandos SSH sugeridos** para ejecutar manualmente la primera vez.
-- Logs paso a paso del job (con estados `PENDIENTE`, `EN_PROCESO`,
-  `COMPLETADO`, `ERROR`, `CANCELADO`).
-- Estado final del job: `PENDING_MANUAL_EXECUTION`.
-- Pantalla de listado, detalle, progreso y logs.
+**V2 — Modo worker** (implementado): un daemon en la VM
+(`provisioner/`, ver [`../provisioner/README.md`](../provisioner/README.md))
+toma los jobs encolados por el CRM y ejecuta el despliegue real (docker
+compose pull/up, healthchecks, migraciones, verificación HTTP), con
+**cleanup automático seguro** si algo falla antes del primer
+`docker compose up`.
 
-La **Versión 2** (ejecución controlada desde backend) y la **Versión 3**
-(cola de jobs + worker + healthchecks reales + import de workflows n8n por
-API + backups automatizados) quedan documentadas como evolución más abajo.
+Se activa cambiando `PROVISIONING_MODE=worker` en el `.env.local` del CRM.
+El default sigue siendo `manual` para no romper instalaciones existentes.
+
+**V3** (pendiente): import real de workflows n8n via API REST por
+instancia, backups automatizados con cron + retención, panel de
+monitoreo agregado.
 
 ---
 
@@ -249,23 +249,41 @@ Ver `docs/provisioning-security-checklist.md`. Resumen:
 
 ---
 
-## 11. Evolución a worker / cola de jobs (V3)
+## 11. V2 — Worker `fluxtic-provisioner` (implementado)
 
-Cuando se necesite ejecutar realmente Docker desde backend:
+El worker vive bajo `provisioner/` en este repo. Es un proceso Node
+separado, con su propio `package.json`, `tsconfig.json` y unit de
+systemd. Corre como usuario `fluxtic` (grupo `docker`) en la misma VM
+que los stacks de los clientes, pero **no comparte el proceso del CRM**.
 
-1. Un servicio Node separado (no Next.js serverless) en la misma VM que
-   los stacks de clientes. Lo llamamos `fluxtic-provisioner`.
-2. Cola de jobs en Redis (BullMQ) o tabla `provisioning_jobs` con
-   `status = QUEUED`. El worker hace polling o suscripción.
-3. El worker:
-   - Lee el job de Firestore.
-   - Ejecuta `docker compose -f /opt/fluxtic/clients/<slug>/docker-compose.yml up -d`.
-   - Reporta progreso escribiendo logs en `provisioning_logs`.
-   - Ejecuta healthchecks (`curl https://<crm>/api/health`).
-   - Marca el job como `COMPLETADO` o `ERROR`.
-4. Importación de workflows n8n via API REST de cada instancia n8n con un
-   token interno.
-5. Backups: cron en la VM + entrada en `provisioning_client_backups` con
-   timestamp y tamaño.
+Flujo:
 
-El CRM se mantiene como **panel de control**: nunca corre el worker.
+1. El CRM (en modo `worker`) genera todo, persiste el cliente, el bundle
+   (`.env` + `docker-compose.yml` + `metadata.json`) y crea el job con
+   `status = QUEUED` y `totalSteps = 9 + 9`.
+2. El worker hace polling (cada 5s) sobre `provisioning_jobs` filtrando
+   por `QUEUED` (o `EN_PROCESO` con lease expirado).
+3. Toma el job con una transacción Firestore que setea
+   `status = EN_PROCESO`, `workerId` y `leaseExpiresAt = now + 10min`.
+4. Ejecuta los pasos `PREPARING_FOLDER → WRITING_FILES → ENSURING_NETWORK
+   → PULLING_IMAGES → STARTING_STACK → WAITING_HEALTH → RUNNING_MIGRATIONS
+   → VERIFYING_ENDPOINT → FINALIZADO`. Renueva el lease entre pasos.
+5. Si falla **antes** de `STARTING_STACK`, hace cleanup automático
+   (borra la carpeta del cliente). Si falla **después**, deja todo
+   para inspección manual.
+6. Cuando termina marca el cliente como `activo` y el job como
+   `COMPLETADO`.
+
+Ver instalación en [`../provisioner/README.md`](../provisioner/README.md).
+
+## 12. V3 — Pendiente
+
+- **Importación de workflows n8n**: una vez que el stack está arriba,
+  el worker hace POST a la API REST del n8n del cliente con cada JSON
+  de `templates/<producto>/workflows/`. Estado se persiste en
+  `ClientWorkflow.n8nWorkflowId`.
+- **Backups automatizados**: cron en la VM corre los scripts de
+  `DelfinaPazBueno/backup-postgres.sh` adaptados al slug del cliente,
+  con retención configurable y verificación de integridad.
+- **Panel de monitoreo**: agregado de estados de todos los clientes en
+  un dashboard con healthchecks en vivo y alertas.

@@ -1,0 +1,49 @@
+[Unit]
+Description=Fluxtic Provisioner — worker que ejecuta jobs de la consola Plataforma del CRM Fluxtic
+Documentation=file:///opt/fluxtic/provisioner/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+
+# Usuario dedicado, miembro del grupo docker.
+# Crear con scripts/install.sh.
+User=fluxtic
+Group=docker
+
+WorkingDirectory=/opt/fluxtic/provisioner
+
+# Credenciales y configuración del worker.
+# Editar /etc/fluxtic/provisioner.env con la service account de Firebase.
+EnvironmentFile=/etc/fluxtic/provisioner.env
+
+ExecStart=/usr/bin/node /opt/fluxtic/provisioner/dist/index.js
+
+# Reinicio automático ante fallo
+Restart=on-failure
+RestartSec=10s
+
+# Hardening (defensa en profundidad)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+
+# El worker necesita escribir bajo /opt/fluxtic/clients y /opt/fluxtic/backups
+ReadWritePaths=/opt/fluxtic/clients /opt/fluxtic/backups /opt/fluxtic/provisioner /var/log
+
+# Logs a journalctl
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fluxtic-provisioner
+
+[Install]
+WantedBy=multi-user.target

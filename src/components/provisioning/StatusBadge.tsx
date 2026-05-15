@@ -18,6 +18,7 @@ function tone(status: string): { tone: Tone; label: string } {
 
     // Job
     case 'PENDIENTE':                 return { tone: 'default', label: 'Pendiente' }
+    case 'QUEUED':                    return { tone: 'info',    label: 'En cola' }
     case 'EN_PROCESO':                return { tone: 'info',    label: 'En proceso' }
     case 'COMPLETADO':                return { tone: 'success', label: 'Completado' }
     case 'ERROR':                     return { tone: 'danger',  label: 'Error' }

@@ -782,8 +782,14 @@ function Step10Instalacion({ result, error, onGoToClient }: {
   error:  string | null
   onGoToClient: () => void
 }) {
+  const isWorker = result?.mode === 'worker'
   return (
-    <WizardSection title="Instalación" subtitle={result ? 'Cliente creado. Seguí los pasos manuales para levantar el stack.' : 'Procesando…'}>
+    <WizardSection title="Instalación"
+      subtitle={
+        !result ? 'Procesando…' :
+        isWorker ? 'Cliente creado y encolado. El worker está levantando el stack automáticamente.' :
+        'Cliente creado. Seguí los pasos manuales para levantar el stack.'
+      }>
       {error && (
         <div className="p-3 rounded-lg border border-flux-danger/40 bg-flux-danger/10 text-xs text-flux-danger">
           <AlertTriangle size={14} className="inline mr-1" /> {error}
@@ -795,7 +801,10 @@ function Step10Instalacion({ result, error, onGoToClient }: {
       {result && (
         <div className="space-y-5">
           <div className="p-4 rounded-xl border border-flux-success/40 bg-flux-success/10 text-flux-success text-sm flex items-center gap-2">
-            <CheckCircle2 size={18} /> Cliente creado. Job <code className="text-xs">{result.jobId}</code>
+            <CheckCircle2 size={18} />
+            {isWorker
+              ? <>Cliente creado · job <code className="text-xs">{result.jobId}</code> encolado para el worker</>
+              : <>Cliente creado · job <code className="text-xs">{result.jobId}</code></>}
           </div>
 
           <div className="p-4 rounded-xl border border-flux-warning/40 bg-flux-warning/10">
@@ -807,22 +816,36 @@ function Step10Instalacion({ result, error, onGoToClient }: {
             <Reveal label="N8N_ENCRYPTION_KEY"   value={result.revealOnce.n8nEncryptionKey} mono />
           </div>
 
-          <div className="p-4 rounded-xl border border-flux-border bg-flux-surface">
-            <p className="text-sm font-medium text-flux-text1 mb-2">Pasos manuales para levantar el stack</p>
-            <pre className="text-2xs leading-relaxed text-flux-text2 overflow-x-auto font-mono whitespace-pre-wrap">
-              {result.manualSshCommands.join('\n')}
-            </pre>
-          </div>
+          {isWorker ? (
+            <div className="p-4 rounded-xl border border-flux-info/40 bg-flux-info/10 text-flux-info text-xs">
+              El worker fluxtic-provisioner toma el job en ~5 segundos.
+              Podés seguir el progreso (carpeta → archivos → docker compose up → healthchecks → migraciones)
+              desde la pantalla del job.
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl border border-flux-border bg-flux-surface">
+              <p className="text-sm font-medium text-flux-text1 mb-2">Pasos manuales para levantar el stack</p>
+              <pre className="text-2xs leading-relaxed text-flux-text2 overflow-x-auto font-mono whitespace-pre-wrap">
+                {result.manualSshCommands.join('\n')}
+              </pre>
+            </div>
+          )}
 
-          <div className="flex gap-2">
-            <button onClick={onGoToClient}
+          <div className="flex gap-2 flex-wrap">
+            <a href={`/plataforma/jobs/${result.jobId}`}
               className="px-4 py-2 rounded-lg bg-flux-teal text-[#0a0d12] text-sm font-medium hover:bg-flux-tealDim">
-              Ir al detalle del cliente
-            </button>
-            <a href={`/api/provisioning/clients/${result.clientId}/files`} target="_blank"
-              className="px-4 py-2 rounded-lg border border-flux-border text-flux-text2 text-sm hover:bg-white/5">
-              Ver archivos generados (.env + compose)
+              Ver progreso del job
             </a>
+            <button onClick={onGoToClient}
+              className="px-4 py-2 rounded-lg border border-flux-border text-flux-text2 text-sm hover:bg-white/5">
+              Detalle del cliente
+            </button>
+            {!isWorker && (
+              <a href={`/api/provisioning/clients/${result.clientId}/files`} target="_blank"
+                className="px-4 py-2 rounded-lg border border-flux-border text-flux-text2 text-sm hover:bg-white/5">
+                Archivos generados (.env + compose)
+              </a>
+            )}
           </div>
         </div>
       )}
