@@ -1,0 +1,367 @@
+/**
+ * Seed Etapa 1 — Fluxtic Salud
+ * Idempotente: usa upsert por campo natural donde es posible.
+ *
+ * Datos de demo:
+ *  - 5 usuarios demo (admin, recepción, médico, facturación, paciente)
+ *  - 2 sedes (Centro y Zona Norte), 3 consultorios cada una
+ *  - 3 especialidades, 5 prestaciones
+ *  - 4 profesionales con perfil + horarios + sedes
+ *  - 5 obras sociales con 2 planes cada una
+ *  - 10 pacientes (incluyendo el del usuario demo)
+ *  - 20 turnos distribuidos en los próximos 7 días
+ *  - Configuración singleton de la clínica
+ */
+import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
+
+const prisma = new PrismaClient()
+
+const PWD_DEFAULT = 'Salud2026!'
+
+async function main() {
+  console.log('🌱 Seeding Fluxtic Salud...')
+
+  // ── Singletons de configuración ──────────────────────────────
+  await prisma.configuracionClinica.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton', nombre: 'Clínica Demo Fluxtic Salud', telefono: '+54 11 5555-0000', email: 'contacto@clinica.demo' },
+    update: {},
+  })
+  await prisma.configuracionAgenda.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton' },
+    update: {},
+  })
+  await prisma.configuracionFacturacion.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton', acepta_transferencia: true },
+    update: {},
+  })
+
+  // ── Especialidades ───────────────────────────────────────────
+  const esp = {
+    clinica: await prisma.especialidad.upsert({
+      where: { nombre: 'Clínica Médica' },
+      create: { nombre: 'Clínica Médica', codigo: 'CLI' },
+      update: {},
+    }),
+    cardiologia: await prisma.especialidad.upsert({
+      where: { nombre: 'Cardiología' },
+      create: { nombre: 'Cardiología', codigo: 'CAR' },
+      update: {},
+    }),
+    pediatria: await prisma.especialidad.upsert({
+      where: { nombre: 'Pediatría' },
+      create: { nombre: 'Pediatría', codigo: 'PED' },
+      update: {},
+    }),
+  }
+
+  // ── Sedes y consultorios ─────────────────────────────────────
+  const sedeExistsCentro = await prisma.sede.findFirst({ where: { nombre: 'Sede Centro' } })
+  const sedeCentro = sedeExistsCentro
+    ?? await prisma.sede.create({
+      data: {
+        nombre: 'Sede Centro',
+        direccion: 'Av. Corrientes 1234',
+        ciudad: 'Buenos Aires',
+        provincia: 'CABA',
+        telefono: '+54 11 4321-0000',
+        email: 'centro@clinica.demo',
+      },
+    })
+
+  const sedeExistsNorte = await prisma.sede.findFirst({ where: { nombre: 'Sede Norte' } })
+  const sedeNorte = sedeExistsNorte
+    ?? await prisma.sede.create({
+      data: {
+        nombre: 'Sede Norte',
+        direccion: 'Av. Cabildo 4567',
+        ciudad: 'Buenos Aires',
+        provincia: 'CABA',
+        telefono: '+54 11 4321-1111',
+        email: 'norte@clinica.demo',
+      },
+    })
+
+  const consultoriosData = [
+    { sede_id: sedeCentro.id, nombre: 'Consultorio 1', numero: '101' },
+    { sede_id: sedeCentro.id, nombre: 'Consultorio 2', numero: '102' },
+    { sede_id: sedeCentro.id, nombre: 'Consultorio 3', numero: '103' },
+    { sede_id: sedeNorte.id, nombre: 'Consultorio 1', numero: '201' },
+    { sede_id: sedeNorte.id, nombre: 'Consultorio 2', numero: '202' },
+    { sede_id: sedeNorte.id, nombre: 'Consultorio 3', numero: '203' },
+  ]
+  const consultorios = await Promise.all(
+    consultoriosData.map((c) =>
+      prisma.consultorio.upsert({
+        where: { sede_id_nombre: { sede_id: c.sede_id, nombre: c.nombre } },
+        create: c,
+        update: {},
+      }),
+    ),
+  )
+
+  // ── Prestaciones ─────────────────────────────────────────────
+  const prestacionesData = [
+    { codigo: 'CON-CLI', nombre: 'Consulta clínica', especialidad_id: esp.clinica.id, duracion_min: 30, precio_particular: 8000 },
+    { codigo: 'CON-CAR', nombre: 'Consulta cardiológica', especialidad_id: esp.cardiologia.id, duracion_min: 45, precio_particular: 12000 },
+    { codigo: 'CON-PED', nombre: 'Consulta pediátrica', especialidad_id: esp.pediatria.id, duracion_min: 30, precio_particular: 9000 },
+    { codigo: 'ECG', nombre: 'Electrocardiograma', especialidad_id: esp.cardiologia.id, duracion_min: 20, precio_particular: 6000, requiere_preparacion: true, instrucciones_preparacion: 'Concurrir sin lociones ni cremas en el pecho.' },
+    { codigo: 'CTR-PED', nombre: 'Control pediátrico de niño sano', especialidad_id: esp.pediatria.id, duracion_min: 40, precio_particular: 10000 },
+  ]
+  const prestaciones = await Promise.all(
+    prestacionesData.map((p) =>
+      prisma.prestacion.upsert({
+        where: { codigo: p.codigo },
+        create: { ...p, precio_particular: p.precio_particular as any },
+        update: {},
+      }),
+    ),
+  )
+
+  // ── Coberturas y planes ──────────────────────────────────────
+  const coberturasData = [
+    { nombre: 'OSDE', tipo: 'PREPAGA' as const },
+    { nombre: 'Swiss Medical', tipo: 'PREPAGA' as const },
+    { nombre: 'Galeno', tipo: 'PREPAGA' as const },
+    { nombre: 'IOMA', tipo: 'OBRA_SOCIAL' as const },
+    { nombre: 'PAMI', tipo: 'OBRA_SOCIAL' as const },
+  ]
+  const coberturas = await Promise.all(
+    coberturasData.map((c) =>
+      prisma.coberturaMedica.upsert({
+        where: { nombre: c.nombre },
+        create: c,
+        update: {},
+      }),
+    ),
+  )
+  for (const c of coberturas) {
+    for (const planNombre of ['Plan 210', 'Plan 410']) {
+      await prisma.planCobertura.upsert({
+        where: { cobertura_id_nombre: { cobertura_id: c.id, nombre: planNombre } },
+        create: { cobertura_id: c.id, nombre: planNombre, porcentaje_cobertura: 80 as any },
+        update: {},
+      })
+    }
+  }
+
+  // ── Usuarios demo ────────────────────────────────────────────
+  const passwordHash = await bcrypt.hash(PWD_DEFAULT, 10)
+  const usuariosBase = [
+    { email: 'admin@clinica.com',       nombre: 'Admin',        apellido: 'General',     rol: 'ADMIN_GENERAL' as const, es_profesional: false, es_paciente: false },
+    { email: 'recepcion@clinica.com',   nombre: 'Recepción',    apellido: 'Demo',        rol: 'RECEPCION' as const,     es_profesional: false, es_paciente: false },
+    { email: 'facturacion@clinica.com', nombre: 'Facturación',  apellido: 'Demo',        rol: 'FACTURACION' as const,   es_profesional: false, es_paciente: false },
+    { email: 'medico@clinica.com',      nombre: 'Carlos',       apellido: 'Méndez',      rol: 'MEDICO' as const,        es_profesional: true,  es_paciente: false },
+    { email: 'paciente@clinica.com',    nombre: 'Lucía',        apellido: 'Pérez',       rol: 'PACIENTE' as const,      es_profesional: false, es_paciente: true },
+  ]
+  const usuariosCreados = await Promise.all(
+    usuariosBase.map((u) =>
+      prisma.usuario.upsert({
+        where: { email: u.email },
+        create: { ...u, password: passwordHash },
+        update: { rol: u.rol, es_profesional: u.es_profesional, es_paciente: u.es_paciente },
+      }),
+    ),
+  )
+  const userMedico    = usuariosCreados.find((u) => u.email === 'medico@clinica.com')!
+  const userPaciente  = usuariosCreados.find((u) => u.email === 'paciente@clinica.com')!
+
+  // ── Profesionales (incluye al médico demo) ───────────────────
+  const usuariosProfData = [
+    { email: 'medico@clinica.com',       matricula: 'MN-12345', especialidad_id: esp.clinica.id,     subespecialidad: null,            duracion: 30 },
+    { email: 'cardio@clinica.com',       matricula: 'MN-22001', especialidad_id: esp.cardiologia.id, subespecialidad: 'Hemodinamia',   duracion: 45 },
+    { email: 'pediatra@clinica.com',     matricula: 'MN-33445', especialidad_id: esp.pediatria.id,   subespecialidad: null,            duracion: 30 },
+    { email: 'clinica2@clinica.com',     matricula: 'MN-15678', especialidad_id: esp.clinica.id,     subespecialidad: null,            duracion: 30 },
+  ]
+  for (const p of usuariosProfData) {
+    if (p.email !== 'medico@clinica.com') {
+      await prisma.usuario.upsert({
+        where: { email: p.email },
+        create: {
+          email: p.email,
+          password: passwordHash,
+          nombre: p.email.split('@')[0].charAt(0).toUpperCase() + p.email.split('@')[0].slice(1),
+          apellido: 'Demo',
+          rol: 'MEDICO',
+          es_profesional: true,
+        },
+        update: {},
+      })
+    }
+  }
+
+  const profesionales: Array<{ id: string; especialidad_id: string }> = []
+  for (const p of usuariosProfData) {
+    const u = await prisma.usuario.findUnique({ where: { email: p.email } })
+    if (!u) continue
+    const perfil = await prisma.perfilProfesional.upsert({
+      where: { usuario_id: u.id },
+      create: {
+        usuario_id: u.id,
+        matricula: p.matricula,
+        especialidad_id: p.especialidad_id,
+        subespecialidad: p.subespecialidad,
+        duracion_consulta_min: p.duracion,
+      },
+      update: { especialidad_id: p.especialidad_id, duracion_consulta_min: p.duracion },
+    })
+    profesionales.push({ id: perfil.id, especialidad_id: p.especialidad_id })
+
+    // Asignar a ambas sedes
+    for (const sede of [sedeCentro, sedeNorte]) {
+      await prisma.profesionalSede.upsert({
+        where: { profesional_id_sede_id: { profesional_id: perfil.id, sede_id: sede.id } },
+        create: { profesional_id: perfil.id, sede_id: sede.id },
+        update: {},
+      })
+    }
+
+    // Horarios: lunes a viernes 9-13 y 14-18 en Centro
+    const existingHorarios = await prisma.horarioProfesional.count({ where: { profesional_id: perfil.id } })
+    if (existingHorarios === 0) {
+      for (let dia = 1; dia <= 5; dia++) {
+        await prisma.horarioProfesional.createMany({
+          data: [
+            { profesional_id: perfil.id, sede_id: sedeCentro.id, dia_semana: dia, hora_inicio: '09:00', hora_fin: '13:00' },
+            { profesional_id: perfil.id, sede_id: sedeCentro.id, dia_semana: dia, hora_inicio: '14:00', hora_fin: '18:00' },
+          ],
+        })
+      }
+    }
+
+    // Asignar prestaciones según especialidad
+    const prestacionesEsp = prestaciones.filter((pr) => pr.especialidad_id === p.especialidad_id)
+    for (const pr of prestacionesEsp) {
+      await prisma.profesionalPrestacion.upsert({
+        where: { profesional_id_prestacion_id: { profesional_id: perfil.id, prestacion_id: pr.id } },
+        create: { profesional_id: perfil.id, prestacion_id: pr.id },
+        update: {},
+      })
+    }
+  }
+
+  // ── Pacientes ────────────────────────────────────────────────
+  const pacientesData = [
+    { dni: '28456789', nombre: 'Lucía',     apellido: 'Pérez',     sexo: 'FEMENINO' as const, telefono: '+54 9 11 5555-0001', email: 'paciente@clinica.com', usuario_id: userPaciente.id },
+    { dni: '32145678', nombre: 'Juan',      apellido: 'García',    sexo: 'MASCULINO' as const, telefono: '+54 9 11 5555-0002' },
+    { dni: '35678910', nombre: 'María',     apellido: 'Rodríguez', sexo: 'FEMENINO' as const, telefono: '+54 9 11 5555-0003' },
+    { dni: '40123456', nombre: 'Diego',     apellido: 'Martínez',  sexo: 'MASCULINO' as const, telefono: '+54 9 11 5555-0004' },
+    { dni: '42567890', nombre: 'Sofía',     apellido: 'López',     sexo: 'FEMENINO' as const, telefono: '+54 9 11 5555-0005' },
+    { dni: '37890123', nombre: 'Mateo',     apellido: 'Fernández', sexo: 'MASCULINO' as const, telefono: '+54 9 11 5555-0006' },
+    { dni: '29456123', nombre: 'Camila',    apellido: 'González',  sexo: 'FEMENINO' as const, telefono: '+54 9 11 5555-0007' },
+    { dni: '33789456', nombre: 'Tomás',     apellido: 'Romero',    sexo: 'MASCULINO' as const, telefono: '+54 9 11 5555-0008' },
+    { dni: '38234567', nombre: 'Valentina', apellido: 'Sánchez',   sexo: 'FEMENINO' as const, telefono: '+54 9 11 5555-0009' },
+    { dni: '41345678', nombre: 'Lautaro',   apellido: 'Torres',    sexo: 'MASCULINO' as const, telefono: '+54 9 11 5555-0010' },
+  ]
+  const pacientes: { id: string; dni: string }[] = []
+  for (const p of pacientesData) {
+    const existing = await prisma.paciente.findUnique({ where: { dni: p.dni } })
+    const paciente = existing
+      ?? await prisma.paciente.create({ data: p as any })
+    pacientes.push({ id: paciente.id, dni: paciente.dni })
+    // Crear historia clínica si no existe
+    await prisma.historiaClinica.upsert({
+      where: { paciente_id: paciente.id },
+      create: { paciente_id: paciente.id },
+      update: {},
+    })
+    // Asignar cobertura a algunos pacientes
+    if (pacientes.length % 2 === 0) {
+      const cobertura = coberturas[pacientes.length % coberturas.length]
+      const yaTiene = await prisma.pacienteCobertura.findFirst({ where: { paciente_id: paciente.id, cobertura_id: cobertura.id } })
+      if (!yaTiene) {
+        await prisma.pacienteCobertura.create({
+          data: {
+            paciente_id: paciente.id,
+            cobertura_id: cobertura.id,
+            numero_afiliado: `${cobertura.nombre.slice(0, 3).toUpperCase()}-${1000 + pacientes.length}`,
+            principal: true,
+          },
+        })
+      }
+    }
+  }
+
+  // ── Turnos distribuidos próximos 7 días ──────────────────────
+  const existingTurnos = await prisma.turno.count()
+  if (existingTurnos < 20) {
+    const ahora = new Date()
+    ahora.setMinutes(0, 0, 0)
+    for (let i = 0; i < 20; i++) {
+      const fecha = new Date(ahora.getTime() + (i % 7) * 24 * 3600 * 1000 + (9 + (i % 6)) * 3600 * 1000)
+      const pac = pacientes[i % pacientes.length]
+      const prof = profesionales[i % profesionales.length]
+      const prestacionesProf = prestaciones.filter((pr) => pr.especialidad_id === prof.especialidad_id)
+      const prest = prestacionesProf[i % prestacionesProf.length]
+      const consult = consultorios[i % consultorios.length]
+      const estado = i < 12 ? 'PENDIENTE' : i < 18 ? 'CONFIRMADO' : 'EN_SALA_ESPERA'
+      await prisma.turno.create({
+        data: {
+          paciente_id: pac.id,
+          profesional_id: prof.id,
+          prestacion_id: prest.id,
+          sede_id: consult.sede_id,
+          consultorio_id: consult.id,
+          fecha_hora: fecha,
+          duracion_min: prest.duracion_min,
+          estado: estado as any,
+          motivo_consulta: estado === 'PENDIENTE' ? 'Primera consulta' : null,
+        },
+      })
+    }
+  }
+
+  // ── Asociar Usuario PACIENTE con Paciente ──────────────────
+  await prisma.paciente.update({
+    where: { dni: '28456789' },
+    data: { usuario_id: userPaciente.id },
+  })
+
+  // ── Una evolución demo firmada para mostrar en portal ──────
+  const hcLucia = await prisma.historiaClinica.findUnique({ where: { paciente_id: (await prisma.paciente.findUnique({ where: { dni: '28456789' } }))!.id } })
+  if (hcLucia) {
+    const existEvol = await prisma.evolucionClinica.findFirst({ where: { historia_id: hcLucia.id } })
+    if (!existEvol) {
+      const perfilMedico = await prisma.perfilProfesional.findFirst({ where: { usuario_id: userMedico.id } })
+      if (perfilMedico) {
+        await prisma.evolucionClinica.create({
+          data: {
+            historia_id: hcLucia.id,
+            profesional_id: perfilMedico.id,
+            usuario_id: userMedico.id,
+            motivo_consulta: 'Control anual',
+            subjetivo: 'Paciente refiere buen estado general',
+            objetivo: 'TA 120/80, FC 72 lpm, examen físico normal',
+            analisis: 'Sin hallazgos patológicos',
+            plan: 'Continuar con hábitos saludables, control en 12 meses',
+            firmado_at: new Date(),
+            firmado_por_id: perfilMedico.id,
+          },
+        })
+        await prisma.alergia.create({
+          data: { historia_id: hcLucia.id, sustancia: 'Penicilina', severidad: 'MODERADA', reaccion: 'Rash cutáneo' },
+        })
+        await prisma.antecedente.create({
+          data: { historia_id: hcLucia.id, tipo: 'PERSONAL', descripcion: 'HTA controlada' },
+        })
+      }
+    }
+  }
+
+  console.log('✅ Seed completo')
+  console.log('---')
+  console.log('Usuarios demo (password: ' + PWD_DEFAULT + ')')
+  usuariosBase.forEach((u) => console.log(`  ${u.rol.padEnd(20)} ${u.email}`))
+}
+
+main()
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })
