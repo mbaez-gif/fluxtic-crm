@@ -15,6 +15,7 @@ import { pacientesRoutes } from './routes/pacientes'
 import { turnosRoutes } from './routes/turnos'
 import { historiaClinicaRoutes } from './routes/historia-clinica'
 import { documentosRoutes } from './routes/documentos'
+import { facturacionRoutes } from './routes/facturacion'
 
 const app = Fastify({
   logger: {
@@ -57,6 +58,7 @@ app.register(pacientesRoutes,      { prefix: '/pacientes' })
 app.register(turnosRoutes,         { prefix: '/turnos' })
 app.register(historiaClinicaRoutes,{ prefix: '/historia-clinica' })
 app.register(documentosRoutes,     { prefix: '/documentos' })
+app.register(facturacionRoutes,    { prefix: '/facturacion' })
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)
