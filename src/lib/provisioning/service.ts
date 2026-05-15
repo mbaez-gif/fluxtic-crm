@@ -282,12 +282,13 @@ export async function provisionClient(opts: {
       jobId, step: 'COMPILANDO_INSTRUCCIONES_SSH', level: 'success',
       message: 'Bundle listo. Job encolado para el worker fluxtic-provisioner.',
     })
-    // Pasos totales en modo worker: 9 del CRM + 9 del worker.
+    // Pasos totales en modo worker: 9 del CRM + 10 del worker
+    // (incluye N8N_IMPORT_WORKFLOWS).
     // El worker sumará a partir de completedSteps actual (= 9).
     await updateJob(jobId, {
       status:      'QUEUED',
       currentStep: null,
-      totalSteps:  STEPS_V1.length - 1 + 9,
+      totalSteps:  STEPS_V1.length - 1 + 10,
     })
     return {
       ok:       true,

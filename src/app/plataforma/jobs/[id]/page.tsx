@@ -11,7 +11,7 @@ import { provisioningApi } from '@/lib/provisioning/client'
 import { StatusBadge } from '@/components/provisioning/StatusBadge'
 import { toDate, cn } from '@/lib/utils'
 import type { JobWithCounts, ProvisioningLog, LogLevel } from '@/types/provisioning'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, RotateCcw } from 'lucide-react'
 
 const LEVEL_COLOR: Record<LogLevel, string> = {
   info:    'text-flux-info',
@@ -28,6 +28,19 @@ export default function JobDetallePage() {
   const [logs, setLogs] = useState<ProvisioningLog[]>([])
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [retryMsg, setRetryMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+
+  async function handleRetry() {
+    if (!params?.id) return
+    setRetryMsg(null)
+    const r = await provisioningApi.retryJob(params.id)
+    if (r.ok) {
+      setRetryMsg({ kind: 'ok', text: 'Job re-encolado. El worker lo va a tomar en breve.' })
+      load()
+    } else {
+      setRetryMsg({ kind: 'err', text: r.message ?? 'No se pudo reintentar' })
+    }
+  }
 
   const load = useCallback(async () => {
     if (!ready || !params?.id) return
@@ -69,9 +82,27 @@ export default function JobDetallePage() {
       <PageHeader
         title="Job de provisionamiento"
         subtitle={`Cliente ${job.clientTenantId}`}
-        actions={<StatusBadge status={job.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={job.status} />
+            {job.status === 'ERROR' && (
+              <button onClick={handleRetry}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-flux-warning/40 text-flux-warning hover:bg-flux-warning/10">
+                <RotateCcw size={12} /> Reintentar
+              </button>
+            )}
+          </div>
+        }
       />
       <div className="p-4 md:p-8 space-y-4">
+        {retryMsg && (
+          <div className={cn('p-3 rounded-lg text-xs flex items-center gap-2',
+            retryMsg.kind === 'ok'
+              ? 'border border-flux-success/40 bg-flux-success/10 text-flux-success'
+              : 'border border-flux-danger/40 bg-flux-danger/10 text-flux-danger')}>
+            {retryMsg.text}
+          </div>
+        )}
         <div className="p-4 rounded-xl border border-flux-border bg-flux-surface">
           <div className="flex items-center justify-between text-xs text-flux-text2 mb-2">
             <span>Paso actual: {job.currentStep ?? '—'}</span>

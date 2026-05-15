@@ -32,9 +32,15 @@ fi
 usermod -aG docker "$USER_NAME"
 
 echo "▶︎ Creando estructura de directorios…"
-mkdir -p /opt/fluxtic/clients /opt/fluxtic/backups "$DEST"
-chown -R "$USER_NAME":"$USER_NAME" /opt/fluxtic/clients /opt/fluxtic/backups "$DEST"
+mkdir -p /opt/fluxtic/clients /opt/fluxtic/backups /opt/fluxtic/templates "$DEST"
+# Carpetas por producto para los workflows opcionales que el worker
+# va a importar a n8n (best-effort: si no hay JSONs, se saltea).
+for p in salud beauty gastro personalizado; do
+  mkdir -p "/opt/fluxtic/templates/$p/workflows"
+done
+chown -R "$USER_NAME":"$USER_NAME" /opt/fluxtic/clients /opt/fluxtic/backups /opt/fluxtic/templates "$DEST"
 chmod 700 /opt/fluxtic/clients /opt/fluxtic/backups
+chmod 755 /opt/fluxtic/templates
 
 echo "▶︎ Sincronizando código del worker a $DEST…"
 SRC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -94,9 +100,14 @@ echo "Próximos pasos:"
 echo "  1. Editá $ENV_FILE con las credenciales de Firebase."
 echo "  2. Verificá que la red Docker 'proxy' existe (Traefik global):"
 echo "       docker network inspect proxy || docker network create proxy"
-echo "  3. Habilitá e iniciá el servicio:"
+echo "  3. Correr el smoke test:"
+echo "       sudo bash $DEST/scripts/smoke-test.sh"
+echo "  4. Habilitá e iniciá el servicio:"
 echo "       systemctl enable --now fluxtic-provisioner"
-echo "  4. Mirá los logs:"
+echo "  5. Mirá los logs:"
 echo "       journalctl -u fluxtic-provisioner -f"
+echo "  6. (Opcional) Colocá los JSONs de workflows n8n en:"
+echo "       /opt/fluxtic/templates/<producto>/workflows/"
 echo ""
 echo "  El CRM tiene que correr con PROVISIONING_MODE=worker para que use este worker."
+echo "  Validación completa: ver $DEST/CHECKLIST.md"

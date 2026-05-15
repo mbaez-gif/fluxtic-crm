@@ -43,4 +43,5 @@ export const COL = {
   logs:        'provisioning_logs',
   domains:     'provisioning_client_domains',
   fileBundles: 'provisioning_file_bundles',
+  workflows:   'provisioning_client_workflows',
 } as const

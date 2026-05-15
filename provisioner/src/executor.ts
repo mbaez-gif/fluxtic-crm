@@ -11,6 +11,7 @@ import {
 import { ensureNetwork, composePull, composeUp, composeDown, composeExec, DockerError } from './docker.js'
 import { waitForHealth } from './healthcheck.js'
 import { migrationPlanFor } from './product-migrations.js'
+import { importWorkflows, parseEnv } from './n8n-import.js'
 import type {
   ClientStatus, ClientTenantDoc, FileBundleDoc, JobDoc, JobStep,
 } from './types.js'
@@ -25,6 +26,7 @@ const WORKER_STEPS: JobStep[] = [
   'STARTING_STACK',
   'WAITING_HEALTH',
   'RUNNING_MIGRATIONS',
+  'N8N_IMPORT_WORKFLOWS',
   'VERIFYING_ENDPOINT',
   'FINALIZADO',
 ]
@@ -143,7 +145,7 @@ export async function executeJob(jobId: string, job: JobDoc): Promise<void> {
     // ── RUNNING_MIGRATIONS ───────────────────────────────
     currentStep = 'RUNNING_MIGRATIONS'
     await bumpJobStep(jobId, currentStep, tick())
-    const plan = migrationPlanFor(client.productType)
+    const plan = migrationPlanFor(client.productType, client.mode)
     if (!plan) {
       await persistLog({ jobId, step: currentStep, level: 'info',
         message: `Producto ${client.productType} no tiene plan de migraciones definido — salteado` })
@@ -162,6 +164,45 @@ export async function executeJob(jobId: string, job: JobDoc): Promise<void> {
           if (plan.failFast) throw e
         }
       }
+    }
+
+    // ── N8N_IMPORT_WORKFLOWS ─────────────────────────────
+    // Best-effort: si no hay JSONs en /opt/fluxtic/templates/<producto>/workflows/
+    // el paso se loguea como "skipped" y el job sigue. Falla acá no se
+    // considera fatal — los workflows se pueden importar a mano después.
+    currentStep = 'N8N_IMPORT_WORKFLOWS'
+    await bumpJobStep(jobId, currentStep, tick())
+    try {
+      const envVars = parseEnv(bundle.envFile)
+      const n8nUser = envVars.N8N_USER     ?? 'admin'
+      const n8nPass = envVars.N8N_PASSWORD ?? ''
+      if (!n8nPass) {
+        await persistLog({ jobId, step: currentStep, level: 'warn',
+          message: 'No se encontró N8N_PASSWORD en el bundle — paso salteado' })
+      } else {
+        const imp = await importWorkflows({
+          product:        client.productType,
+          n8nDomain:      client.n8nDomain,
+          n8nUser, n8nPassword: n8nPass,
+          clientTenantId: job.clientTenantId,
+        })
+        if (imp.total === 0) {
+          await persistLog({ jobId, step: currentStep, level: 'info',
+            message: 'No hay workflows JSON en el filesystem — paso salteado',
+            metadata: { templatesRoot: process.env.TEMPLATES_ROOT ?? '/opt/fluxtic/templates' } })
+        } else {
+          await persistLog({
+            jobId, step: currentStep,
+            level: imp.failed === 0 ? 'success' : 'warn',
+            message: `Importados ${imp.imported}/${imp.total} workflows (failed=${imp.failed})`,
+            metadata: { details: imp.details.slice(0, 30) },
+          })
+        }
+      }
+    } catch (e) {
+      await persistLog({ jobId, step: currentStep, level: 'warn',
+        message: `Import de workflows tuvo problemas: ${(e as Error).message}` })
+      // No relanzamos: este paso es best-effort.
     }
 
     // ── VERIFYING_ENDPOINT ───────────────────────────────

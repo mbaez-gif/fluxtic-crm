@@ -101,6 +101,20 @@ export const provisioningApi = {
     return call(`/api/provisioning/clients/${id}/files`)
   },
 
+  async retryJob(id: string): Promise<{ ok: boolean; error?: string; message?: string; status?: string }> {
+    try {
+      const r = await call<{ jobId: string; status: string }>(`/api/provisioning/jobs/${id}/retry`, { method: 'POST' })
+      return { ok: true, status: r.status }
+    } catch (e) {
+      const detail = (e as Error & { detail?: { message?: string; error?: string } }).detail
+      return {
+        ok:      false,
+        error:   detail?.error ?? 'ERROR',
+        message: detail?.message ?? (e as Error).message,
+      }
+    }
+  },
+
   // Acciones de manage (V1 devuelven 501 + sshCommand)
   async clientAction(id: string, action: 'start' | 'stop' | 'restart' | 'backup'): Promise<{
     ok: boolean; error?: string; message?: string; sshCommand?: string
