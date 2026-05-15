@@ -11,7 +11,7 @@ import {
   Building2, FolderKanban, CreditCard,
   CheckSquare, LogOut, Plug, Calculator,
   TrendingDown, Store, Tag, Wallet, Lock,
-  MessageCircle, Receipt, FileText,
+  MessageCircle, Receipt, FileText, Server, Boxes,
 } from 'lucide-react'
 
 const CRM_NAV = [
@@ -35,6 +35,12 @@ const ADMIN_NAV = [
   { href: '/admin/categorias',   label: 'Categorías',     icon: Tag             },
   { href: '/admin/medios-pago',  label: 'Medios de pago', icon: Wallet          },
   { href: '/admin/cierre',       label: 'Cierre mensual', icon: Lock            },
+]
+
+// Plataforma: sólo visible para super_admin
+const PLATFORM_NAV = [
+  { href: '/plataforma/clientes',       label: 'Clientes Fluxtic', icon: Boxes  },
+  { href: '/plataforma/clientes/nuevo', label: 'Nuevo cliente',    icon: Server },
 ]
 
 interface Props { onNavigate?: () => void }
@@ -61,7 +67,9 @@ export function Sidebar({ onNavigate }: Props) {
   const pathname = usePathname()
   const router   = useRouter()
   const { profile } = useAuthContext()
-  const isAdmin  = pathname.startsWith('/admin')
+  const isAdmin    = pathname.startsWith('/admin')
+  const isPlatform = pathname.startsWith('/plataforma')
+  const isSuper    = profile?.rol === 'super_admin'
 
   async function handleSignOut() {
     await signOut()
@@ -84,11 +92,11 @@ export function Sidebar({ onNavigate }: Props) {
       </div>
 
       {/* Mode toggle */}
-      <div className="flex p-2 gap-1 border-b border-white/5">
+      <div className={cn('flex p-2 gap-1 border-b border-white/5', isSuper && 'flex-wrap')}>
         <Link href="/dashboard" onClick={onNavigate}
           className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all',
-            !isAdmin ? 'text-[#060910] font-bold' : 'text-slate-400 hover:text-slate-200')}
-          style={!isAdmin ? { background: 'linear-gradient(135deg, #00b0ff, #0077cc)' } : {}}>
+            !isAdmin && !isPlatform ? 'text-[#060910] font-bold' : 'text-slate-400 hover:text-slate-200')}
+          style={!isAdmin && !isPlatform ? { background: 'linear-gradient(135deg, #00b0ff, #0077cc)' } : {}}>
           <FolderKanban size={12} /> CRM
         </Link>
         <Link href="/admin" onClick={onNavigate}
@@ -97,16 +105,29 @@ export function Sidebar({ onNavigate }: Props) {
           style={isAdmin ? { background: 'linear-gradient(135deg, #00b0ff, #0077cc)' } : {}}>
           <Calculator size={12} /> Admin
         </Link>
+        {isSuper && (
+          <Link href="/plataforma/clientes" onClick={onNavigate}
+            className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all',
+              isPlatform ? 'text-[#060910] font-bold' : 'text-slate-400 hover:text-slate-200')}
+            style={isPlatform ? { background: 'linear-gradient(135deg, #00b0ff, #0077cc)' } : {}}>
+            <Server size={12} /> Plataforma
+          </Link>
+        )}
       </div>
 
       {/* Nav */}
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-        {!isAdmin ? (
-          CRM_NAV.map(({ href, label, icon }) => (
-            <NavItem key={href} href={href} label={label} icon={icon} onClick={onNavigate}
-              active={pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'))} />
-          ))
-        ) : (
+        {isPlatform && isSuper ? (
+          <>
+            <p className="text-2xs font-medium text-slate-500 uppercase tracking-widest px-3 pb-1 pt-1">
+              Plataforma Fluxtic
+            </p>
+            {PLATFORM_NAV.map(({ href, label, icon }) => (
+              <NavItem key={href} href={href} label={label} icon={icon} onClick={onNavigate}
+                active={pathname === href || pathname.startsWith(href + '/')} />
+            ))}
+          </>
+        ) : isAdmin ? (
           <>
             <p className="text-2xs font-medium text-slate-500 uppercase tracking-widest px-3 pb-1 pt-1">Admin</p>
             {ADMIN_NAV.map(({ href, label, icon }) => (
@@ -114,6 +135,11 @@ export function Sidebar({ onNavigate }: Props) {
                 active={pathname === href || (href !== '/admin' && pathname.startsWith(href + '/'))} />
             ))}
           </>
+        ) : (
+          CRM_NAV.map(({ href, label, icon }) => (
+            <NavItem key={href} href={href} label={label} icon={icon} onClick={onNavigate}
+              active={pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'))} />
+          ))
         )}
       </nav>
 

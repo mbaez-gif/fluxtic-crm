@@ -1,7 +1,9 @@
 import type { Timestamp } from 'firebase/firestore'
 
 // ── Shared ────────────────────────────────────────────────
-export type Role = 'admin' | 'consultor'
+// 'super_admin' = personal interno de Fluxtic con acceso a la consola
+// de provisionamiento (Plataforma → Clientes Fluxtic).
+export type Role = 'super_admin' | 'admin' | 'consultor'
 
 export interface FluxticUser {
   uid:       string

@@ -12,6 +12,11 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'admin';
     }
 
+    function isSuperAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'super_admin';
+    }
+
     function isOwner(responsableId) {
       return isAuth() && request.auth.uid == responsableId;
     }
@@ -97,6 +102,42 @@ service cloud.firestore {
       allow create: if isAuth();
       allow update: if isAuth();
       allow delete: if isAuth();
+    }
+
+    // ── Plataforma Fluxtic — Provisioning ───────────────────
+    // Estas colecciones manejan clientes, jobs y artefactos del módulo
+    // de provisionamiento. Sólo super_admin del personal interno de
+    // Fluxtic puede leer/escribir. Las escrituras reales se hacen vía
+    // firebase-admin desde las API routes, así que en producción cliente
+    // estas reglas actúan como un seguro extra; nadie debería escribir
+    // estas colecciones desde el cliente Firestore.
+    match /provisioning_clients/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /provisioning_jobs/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /provisioning_logs/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /provisioning_client_domains/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /provisioning_client_integrations/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /provisioning_client_users/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /provisioning_client_workflows/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /provisioning_client_backups/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /provisioning_file_bundles/{docId} {
+      // El bundle contiene el .env y compose generados. Sólo super_admin.
+      allow read, write: if isSuperAdmin();
     }
   }
 }
