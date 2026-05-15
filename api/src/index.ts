@@ -6,6 +6,11 @@ import sensible from '@fastify/sensible'
 import { prisma } from './lib/prisma'
 import authPlugin from './lib/auth.plugin'
 import { healthRoutes } from './routes/health'
+import { sedesRoutes } from './routes/sedes'
+import { especialidadesRoutes } from './routes/especialidades'
+import { profesionalesRoutes } from './routes/profesionales'
+import { prestacionesRoutes } from './routes/prestaciones'
+import { coberturasRoutes } from './routes/coberturas'
 
 const app = Fastify({
   logger: {
@@ -39,8 +44,11 @@ app.addHook('preHandler', async (request, reply) => {
 
 // ── Rutas ─────────────────────────────────────────────────────────
 app.register(healthRoutes)
-
-// Las rutas de dominio clinico se registran en commits C07-C14.
+app.register(sedesRoutes,          { prefix: '/sedes' })
+app.register(especialidadesRoutes, { prefix: '/especialidades' })
+app.register(profesionalesRoutes,  { prefix: '/profesionales' })
+app.register(prestacionesRoutes,   { prefix: '/prestaciones' })
+app.register(coberturasRoutes,     { prefix: '/coberturas' })
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)
