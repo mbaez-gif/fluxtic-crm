@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────
-// SCHEMA PRISMA — Delfina Paz CRM
-// Sprint: Dashboards + Ventas + PDF + Configuración
+// SCHEMA PRISMA — Fluxtic Salud (CRM Clínico)
+// Etapa 1 — Foundation
 // ─────────────────────────────────────────────────────────────────
 
 generator client {
@@ -12,561 +12,110 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─────────────────────────────────────────────────────────────────
-// USUARIOS DEL SISTEMA
-// ─────────────────────────────────────────────────────────────────
-model Usuario {
-  id         String     @id @default(cuid())
-  email      String     @unique
-  nombre     String
-  apellido   String?
-  password   String
-  rol        RolUsuario @default(EMPLEADA)
-  activo     Boolean    @default(true)
-  color      String     @default("#C8A882")
-  tipo_comision        TipoComision @default(NINGUNA)
-  porcentaje_comision  Decimal      @default(0) @db.Decimal(5, 2)
-
-  // Permisos configurables por usuario
-  puede_ver_caja                Boolean @default(false)
-  puede_cobrar                  Boolean @default(false)
-  puede_anular_ventas           Boolean @default(false)
-  puede_reimprimir_comprobantes Boolean @default(false)
-  puede_ver_ventas_dia          Boolean @default(false)
-  puede_ver_reportes            Boolean @default(false)
-  puede_gestionar_turnos        Boolean @default(true)
-  puede_gestionar_clientes      Boolean @default(false)
-  puede_gestionar_servicios     Boolean @default(false)
-  puede_gestionar_productos     Boolean @default(false)
-  puede_gestionar_configuracion Boolean @default(false)
-  puede_gestionar_usuarios      Boolean @default(false)
-  puede_gestionar_integraciones Boolean @default(false)
-
-  telefono   String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  turnos      Turno[]              @relation("TurnosProfesional")
-  ventas_prof Venta[]              @relation("VentasProfesional")
-  eventos     EventoN8n[]
-  horarios    HorarioProfesional[] // NUEVO
-
-  @@map("usuarios")
-}
+// ═════════════════════════════════════════════════════════════════
+//  ENUMS
+// ═════════════════════════════════════════════════════════════════
 
 enum RolUsuario {
-  OWNER
-  ADMIN
-  EMPLEADA
-}
-
-enum TipoComision {
-  SERVICIOS   // comisión sobre items tipo SERVICIO
-  PRODUCTOS   // comisión sobre items tipo PRODUCTO
-  NINGUNA
-}
-
-// ─────────────────────────────────────────────────────────────────
-// HORARIOS POR PROFESIONAL — NUEVO
-// Una profesional puede tener múltiples bloques por día
-// (ej: 09:00-13:00 y 15:00-19:00 con pausa de almuerzo)
-// ─────────────────────────────────────────────────────────────────
-model HorarioProfesional {
-  id             String   @id @default(cuid())
-  profesional_id String
-  dia_semana     Int      // 0=Domingo, 1=Lunes, ..., 6=Sábado
-  hora_inicio    String   // formato "HH:mm" — ej "09:00"
-  hora_fin       String   // formato "HH:mm" — ej "19:00"
-  activo         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  profesional Usuario @relation(fields: [profesional_id], references: [id], onDelete: Cascade)
-
-  @@unique([profesional_id, dia_semana, hora_inicio])
-  @@index([profesional_id])
-  @@map("horarios_profesionales")
-}
-
-// ─────────────────────────────────────────────────────────────────
-// CLIENTES
-// ─────────────────────────────────────────────────────────────────
-model Cliente {
-  id               String        @id @default(cuid())
-  nombre           String
-  apellido         String?
-  dni              String?       @unique
-  telefono         String?       @unique
-  email            String?       @unique
-  segmento         Segmento      @default(FINAL)
-  origen           OrigenCliente @default(MANUAL)
-  instagram_id     String?
-  tiendanube_id    String?
-  notas            String?
-  total_compras    Decimal       @default(0) @db.Decimal(12, 2)
-  cant_turnos      Int           @default(0)
-  ultimo_turno     DateTime?
-  ultima_compra    DateTime?
-  fecha_nacimiento DateTime?
-  activo           Boolean       @default(true)
-  deletedAt        DateTime?     // soft-delete
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-
-  turnos    Turno[]
-  ventas    Venta[]
-  consultas Consulta[]
-  mensajes  MensajeWA[]
-
-  @@index([telefono])
-  @@index([segmento])
-  @@index([origen])
-  @@index([deletedAt])
-  @@map("clientes")
-}
-
-enum Segmento {
-  FINAL
-  MAYORISTA
-  VIP
-}
-
-enum OrigenCliente {
-  MANUAL
-  WHATSAPP
-  INSTAGRAM_DM
-  INSTAGRAM_COMENTARIO
-  TIENDANUBE
-  BOCA_A_BOCA
-  LINK_PUBLICO  // NUEVO — clienta que llegó por la página pública de reservas
-}
-
-// ─────────────────────────────────────────────────────────────────
-// SERVICIOS
-// ─────────────────────────────────────────────────────────────────
-model Servicio {
-  id           String            @id @default(cuid())
-  nombre       String
-  descripcion  String?
-  categoria    CategoriaServicio
-  duracion_min Int
-  precio       Decimal           @db.Decimal(10, 2)
-  foto_url     String?
-  activo       Boolean           @default(true)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-
-  // NUEVO — configuración de seña
-  sena_tipo       TipoSena @default(SIN_SENA)
-  sena_porcentaje Decimal? @db.Decimal(5, 2)   // Ej: 30.00 = 30%
-  sena_monto_fijo Decimal? @db.Decimal(10, 2)  // Ej: 5000.00 = $5.000
-
-  // buffer de limpieza después del turno
-  buffer_min Int @default(5)
-
-  deletedAt DateTime? // soft-delete
-
-  turnos  Turno[]
-  insumos InsumoServicio[]
-
-  @@index([deletedAt])
-  @@map("servicios")
-}
-
-enum CategoriaServicio {
-  MANOS_PIES
-  CEJAS_PESTANAS
-  LABIOS
-  FACIAL
-  OTRO
-}
-
-// NUEVO
-enum TipoSena {
-  SIN_SENA
-  PORCENTAJE
-  MONTO_FIJO
-}
-
-// ─────────────────────────────────────────────────────────────────
-// PRODUCTOS / STOCK
-// ─────────────────────────────────────────────────────────────────
-model Producto {
-  id                 String            @id @default(cuid())
-  nombre             String
-  sku                String?           @unique
-  categoria          CategoriaProducto
-  precio_minorista   Decimal           @db.Decimal(10, 2)
-  precio_mayorista   Decimal?          @db.Decimal(10, 2)
-  stock_actual       Int               @default(0)
-  stock_minimo       Int               @default(5)
-  foto_url           String?
-  tiendanube_prod_id String?
-  tiendanube_var_id  String?
-  costo              Decimal?  @db.Decimal(10, 2) // para margen estimado
-  activo             Boolean   @default(true)
-  deletedAt          DateTime? // soft-delete
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-
-  movimientos MovimientoStock[]
-  insumos     InsumoServicio[]
-
-  @@index([categoria])
-  @@index([stock_actual])
-  @@index([deletedAt])
-  @@map("productos")
-}
-
-enum CategoriaProducto {
-  INSUMO
-  MARCA_PROPIA
-  REVENTA
-}
-
-// ─────────────────────────────────────────────────────────────────
-// INSUMOS POR SERVICIO
-// ─────────────────────────────────────────────────────────────────
-model InsumoServicio {
-  id          String @id @default(cuid())
-  servicio_id String
-  producto_id String
-  cantidad    Int    @default(1)
-
-  servicio Servicio @relation(fields: [servicio_id], references: [id], onDelete: Cascade)
-  producto Producto @relation(fields: [producto_id], references: [id], onDelete: Cascade)
-
-  @@unique([servicio_id, producto_id])
-  @@map("insumos_servicios")
-}
-
-// ─────────────────────────────────────────────────────────────────
-// MOVIMIENTOS DE STOCK
-// ─────────────────────────────────────────────────────────────────
-model MovimientoStock {
-  id               String         @id @default(cuid())
-  producto_id      String
-  tipo             TipoMovimiento
-  cantidad         Int
-  stock_resultante Int
-  referencia_id    String?
-  notas            String?
-  createdAt        DateTime       @default(now())
-
-  producto Producto @relation(fields: [producto_id], references: [id])
-
-  @@index([producto_id])
-  @@index([tipo])
-  @@map("movimientos_stock")
-}
-
-enum TipoMovimiento {
-  VENTA_LOCAL
-  VENTA_ONLINE
-  USO_SERVICIO
-  AJUSTE_MANUAL
-  ENTRADA
-}
-
-// ─────────────────────────────────────────────────────────────────
-// TURNOS
-// ─────────────────────────────────────────────────────────────────
-model Turno {
-  id                   String      @id @default(cuid())
-  cliente_id           String
-  servicio_id          String
-  profesional_id       String
-  fecha                DateTime
-  duracion_min         Int
-  precio               Decimal     @db.Decimal(10, 2)
-  estado               EstadoTurno @default(PENDIENTE)
-  sena                 Decimal?    @db.Decimal(10, 2)
-  notas                String?
-  observaciones        String?     // NUEVO — comentarios internos del admin
-  confirmacion_enviada Boolean     @default(false)
-  recordatorio_enviado Boolean     @default(false)
-  seguimiento_enviado  Boolean     @default(false)
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-
-  // NUEVO — montos de la reserva
-  monto_total    Decimal  @db.Decimal(10, 2)
-  monto_sena     Decimal? @db.Decimal(10, 2)
-  sena_requerida Boolean  @default(false)
-
-  // NUEVO — flujo de reserva
-  reserva_expira_en DateTime?
-  origen_reserva    OrigenReserva @default(ADMIN)
-
-  // NUEVO — Mercado Pago (último intento, denormalizado)
-  mp_preference_id      String?
-  mp_init_point         String?
-  mp_external_reference String?
-
-  cliente     Cliente  @relation(fields: [cliente_id], references: [id])
-  servicio    Servicio @relation(fields: [servicio_id], references: [id])
-  profesional Usuario  @relation("TurnosProfesional", fields: [profesional_id], references: [id])
-
-  // NUEVO — agrupa turnos consecutivos del mismo booking multi-servicio
-  grupo_reserva_id String?
-
-  // NUEVAS relaciones
-  pagos_sena   PagoSena[]
-  comprobantes ComprobanteManual[]
-
-  @@index([fecha])
-  @@index([estado])
-  @@index([cliente_id])
-  @@index([profesional_id])
-  @@index([reserva_expira_en])         // NUEVO — para el cron de vencimiento
-  @@index([mp_external_reference])     // NUEVO — para resolver webhooks rápido
-  @@index([grupo_reserva_id])          // NUEVO — para confirmar grupo de turnos
-  @@map("turnos")
+  ADMIN_GENERAL
+  RECEPCION
+  FACTURACION
+  MEDICO
+  COORDINADOR_MEDICO
+  PACIENTE
+  AUDITOR
 }
 
 enum EstadoTurno {
-  PENDIENTE                       // existente
-  PENDIENTE_PAGO_MP               // NUEVO
-  PENDIENTE_VALIDACION_MANUAL     // NUEVO (fase 2)
-  CONFIRMADO                      // existente
-  EN_CURSO                        // existente
-  PENDIENTE_FACTURAR              // NUEVO — servicio terminado, esperando cobro en caja
-  COMPLETADO                      // existente
-  CANCELADO                       // existente
-  NO_SHOW                         // existente
-  VENCIDO                         // NUEVO
-  RECHAZADO                       // NUEVO
-}
-
-// NUEVO
-enum OrigenReserva {
-  ADMIN
-  LINK_PUBLICO
-  WHATSAPP
-  INSTAGRAM
-  TIENDANUBE
-}
-
-// ─────────────────────────────────────────────────────────────────
-// PAGOS DE SEÑA — NUEVO
-// Cada intento de pago genera un registro nuevo
-// ─────────────────────────────────────────────────────────────────
-model PagoSena {
-  id                   String         @id @default(cuid())
-  turno_id             String
-  provider             String         @default("MERCADOPAGO")
-  external_reference   String         @unique
-  preference_id        String?
-  payment_id           String?        @unique  // CLAVE — idempotencia del webhook
-  merchant_order_id    String?
-  status               EstadoPagoSena @default(CREADO)
-  status_detail        String?
-  amount               Decimal        @db.Decimal(10, 2)
-  currency             String         @default("ARS")
-  init_point           String?
-  payer_email          String?
-  payer_id             String?
-  webhook_payload      Json?
-  raw_payment_response Json?
-  approved_at          DateTime?
-  rejected_at          DateTime?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-
-  turno Turno @relation(fields: [turno_id], references: [id], onDelete: Cascade)
-
-  @@index([turno_id])
-  @@index([status])
-  @@map("pagos_sena")
-}
-
-enum EstadoPagoSena {
-  CREADO
   PENDIENTE
-  APROBADO
-  RECHAZADO
-  VENCIDO
-  REEMBOLSADO
-  VALIDACION_MANUAL
+  CONFIRMADO
+  EN_SALA_ESPERA
+  EN_ATENCION
+  ATENDIDO
+  CANCELADO
+  AUSENTE
 }
 
-// ─────────────────────────────────────────────────────────────────
-// COMPROBANTES MANUALES — NUEVO (fase 2)
-// Schema preparado, lógica completa en MVP 2
-// ─────────────────────────────────────────────────────────────────
-model ComprobanteManual {
-  id                      String            @id @default(cuid())
-  turno_id                String
-  archivo_url             String
-  monto_detectado         Decimal?          @db.Decimal(10, 2)
-  fecha_detectada         DateTime?
-  alias_detectado         String?
-  num_operacion_detectado String?
-  confianza_validacion    Decimal?          @db.Decimal(3, 2)
-  estado                  EstadoComprobante @default(PENDIENTE)
-  motivo_revision         String?
-  validado_por_usuario_id String?
-  validado_at             DateTime?
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
+enum ModalidadTurno {
+  PRESENCIAL
+  VIRTUAL
+}
 
-  turno Turno @relation(fields: [turno_id], references: [id], onDelete: Cascade)
+enum EstadoPaciente {
+  ACTIVO
+  INACTIVO
+  EN_SEGUIMIENTO
+  BLOQUEADO
+}
 
-  @@index([turno_id])
-  @@index([estado])
-  @@map("comprobantes_manuales")
+enum Sexo {
+  FEMENINO
+  MASCULINO
+  OTRO
+  SIN_DATO
+}
+
+enum TipoAntecedente {
+  PERSONAL
+  FAMILIAR
+  QUIRURGICO
+  OBSTETRICO
+  GINECOLOGICO
+  TRAUMATICO
+  OTRO
+}
+
+enum SeveridadAlergia {
+  LEVE
+  MODERADA
+  SEVERA
+  CRITICA
+}
+
+enum EstadoAutorizacion {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  EXPIRADA
+}
+
+enum TipoDocumentoClinico {
+  EVOLUCION
+  ESTUDIO
+  INFORME
+  IMAGEN
+  RECETA
+  CONSENTIMIENTO
+  INDICACION
+  OTRO
+}
+
+enum AccionAuditoria {
+  VER
+  CREAR
+  MODIFICAR
+  ELIMINAR
+  EXPORTAR
+  FIRMAR
+  DESCARGAR
+  LOGIN
+  LOGOUT
+  ACCESO_DENEGADO
 }
 
 enum EstadoComprobante {
-  PENDIENTE
-  APROBADO
-  RECHAZADO
-  REQUIERE_REVISION
-}
-
-// ─────────────────────────────────────────────────────────────────
-// CONSULTAS / LEADS
-// ─────────────────────────────────────────────────────────────────
-model Consulta {
-  id         String         @id @default(cuid())
-  cliente_id String?
-  canal      CanalConsulta
-  mensaje    String
-  estado     EstadoConsulta @default(NUEVA)
-  notas      String?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-
-  cliente Cliente? @relation(fields: [cliente_id], references: [id])
-
-  @@index([estado])
-  @@index([canal])
-  @@map("consultas")
-}
-
-enum CanalConsulta {
-  WHATSAPP
-  INSTAGRAM
-  TIENDANUBE
-  WEB
-  PRESENCIAL
-}
-
-enum EstadoConsulta {
-  NUEVA
-  EN_PROCESO
-  RESUELTA
-  ARCHIVADA
-}
-
-// ─────────────────────────────────────────────────────────────────
-// INTEGRACIONES EXTERNAS
-// ─────────────────────────────────────────────────────────────────
-model Integracion {
-  id        String   @id @default(cuid())
-  nombre    String   @unique
-  activa    Boolean  @default(false)
-  config    Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("integraciones")
-}
-
-// ─────────────────────────────────────────────────────────────────
-// LOG DE EVENTOS N8N (extendido como log de automatizaciones)
-// ─────────────────────────────────────────────────────────────────
-model EventoN8n {
-  id            String       @id @default(cuid())
-  workflow_name String
-  workflow_id   String?
-  estado        EstadoEvento
-  mensaje       String
-  referencia_id String?
-  usuario_id    String?
-  payload       Json?        // NUEVO
-  error         String?      // NUEVO
-  createdAt     DateTime     @default(now())
-
-  usuario Usuario? @relation(fields: [usuario_id], references: [id])
-
-  @@index([estado])
-  @@index([createdAt])
-  @@index([workflow_name])  // NUEVO — para queries por workflow
-  @@map("eventos_n8n")
-}
-
-enum EstadoEvento {
-  EXITOSO
-  ERROR
-  PENDIENTE
-}
-
-// ─────────────────────────────────────────────────────────────────
-// VENTAS / POS
-// ─────────────────────────────────────────────────────────────────
-model Venta {
-  id                  String      @id @default(cuid())
-  numero_comprobante  Int?        @unique // número interno secuencial — único entre no-nulos
-  cliente_id          String?
-  profesional_id      String?
-  turno_id            String?
-  estado              EstadoVenta @default(PAGADA)
-  origen              OrigenVenta @default(LOCAL)
-  medio_pago          MedioPago
-  subtotal            Decimal     @db.Decimal(12, 2)
-  descuento           Decimal     @default(0) @db.Decimal(12, 2) // monto de descuento en $
-  descuento_pct       Decimal     @default(0) @db.Decimal(5, 2)  // porcentaje de descuento
-  total               Decimal     @db.Decimal(12, 2)
-  sena_aplicada       Decimal?    @db.Decimal(12, 2) // seña previa descontada
-  notas               String?
-  motivo_anulacion    String?     // para estado ANULADA
-  pdf_url             String?     // URL del comprobante PDF en MinIO
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-
-  cliente     Cliente?    @relation(fields: [cliente_id], references: [id])
-  profesional Usuario?    @relation("VentasProfesional", fields: [profesional_id], references: [id])
-  items       ItemVenta[]
-
-  @@index([createdAt])
-  @@index([cliente_id])
-  @@index([estado])
-  @@index([origen])
-  @@index([profesional_id])
-  @@map("ventas")
-}
-
-enum EstadoVenta {
   BORRADOR
-  PAGADA
+  EMITIDO
+  PAGADO
   PAGO_PARCIAL
-  ANULADA
-  DEVUELTA
+  ANULADO
 }
 
-enum OrigenVenta {
-  LOCAL
-  TURNO
-  TIENDANUBE
-  WHATSAPP
-  LINK_PUBLICO
-}
-
-model ItemVenta {
-  id              String  @id @default(cuid())
-  venta_id        String
-  tipo            String  // SERVICIO | PRODUCTO
-  referencia_id   String  // id del servicio o producto
-  nombre          String
-  cantidad        Int     @default(1)
-  precio_unitario Decimal @db.Decimal(10, 2)
-  descuento       Decimal @default(0) @db.Decimal(12, 2)
-  subtotal        Decimal @db.Decimal(10, 2)
-
-  venta Venta @relation(fields: [venta_id], references: [id], onDelete: Cascade)
-
-  @@map("items_venta")
+enum TipoComprobante {
+  RECIBO
+  FACTURA
+  PRESUPUESTO
+  NOTA_CREDITO
 }
 
 enum MedioPago {
@@ -575,158 +124,1072 @@ enum MedioPago {
   DEBITO
   CREDITO
   MERCADOPAGO
+  CHEQUE
+  COBERTURA
 }
 
-// ─────────────────────────────────────────────────────────────────
-// MENSAJES WHATSAPP — historial de envíos
-// ─────────────────────────────────────────────────────────────────
-model MensajeWA {
-  id          String        @id @default(cuid())
-  cliente_id  String?
-  telefono    String
-  tipo        TipoMensajeWA
-  estado      EstadoMensajeWA @default(ENVIADO)
-  contenido   String
-  turno_id    String?
-  sid         String?       // Twilio message SID
-  error       String?
-  createdAt   DateTime      @default(now())
-
-  cliente Cliente? @relation(fields: [cliente_id], references: [id])
-
-  @@index([cliente_id])
-  @@index([tipo])
-  @@index([createdAt])
-  @@map("mensajes_wa")
+enum TipoCobertura {
+  PARTICULAR
+  OBRA_SOCIAL
+  PREPAGA
 }
 
-enum TipoMensajeWA {
-  CONFIRMACION
-  RECORDATORIO
-  CUMPLEANOS
+enum CanalComunicacion {
+  WHATSAPP
+  EMAIL
+  SMS
+}
+
+enum TipoComunicacion {
+  CONFIRMACION_TURNO
+  RECORDATORIO_48H
+  RECORDATORIO_24H
+  RECORDATORIO_2H
+  PREPARACION_PREVIA
+  POSTCONSULTA
   SEGUIMIENTO
-  PAGO_APROBADO
-  PAGO_RECHAZADO
-  VALIDACION_MANUAL
-  PRUEBA
+  REACTIVACION
+  PAGO_PENDIENTE
+  CONFIRMACION_PAGO
+  CAMPANIA
+  OTRO
 }
 
-enum EstadoMensajeWA {
-  ENVIADO
-  FALLIDO
+enum EstadoComunicacion {
   PENDIENTE
+  ENVIADA
+  ENTREGADA
+  LEIDA
+  RESPONDIDA
+  FALLIDA
 }
 
-// ─────────────────────────────────────────────────────────────────
-// CONFIGURACIÓN DEL NEGOCIO — singleton (upsert por nombre)
-// ─────────────────────────────────────────────────────────────────
-model ConfiguracionNegocio {
-  id               String   @id @default(cuid())
-  nombre_comercial String   @default("Delfina Paz Beauty")
-  cuit             String?
-  direccion        String?
-  telefono         String?
-  email            String?
-  instagram        String?
-  logo_url         String?
-  color_principal  String   @default("#A68660")
-  texto_footer     String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@map("configuracion_negocio")
-}
-
-// ─────────────────────────────────────────────────────────────────
-// CONFIGURACIÓN DE RESERVAS Y SEÑAS
-// ─────────────────────────────────────────────────────────────────
-model ConfiguracionReservas {
-  id                       String        @id @default(cuid())
-  sena_obligatoria         Boolean       @default(false)
-  sena_tipo                TipoSena      @default(SIN_SENA)
-  sena_porcentaje          Decimal?      @db.Decimal(5, 2)
-  sena_monto_fijo          Decimal?      @db.Decimal(10, 2)
-  metodo_sena              MetodoSena    @default(SIN_SENA)
-  vencimiento_minutos      Int           @default(30)
-  vencimiento_transf_horas Int           @default(24)
-  mp_link_alternativo      String?
-  alias_transferencia      String?
-  titular_alias            String?
-  mensaje_sena             String?
-  mensaje_confirmacion     String?
-  mensaje_recordatorio     String?
-  tolerancia_validacion    Int           @default(60)
-  estado_inicial_mp        EstadoTurno   @default(PENDIENTE_PAGO_MP)
-  estado_inicial_transf    EstadoTurno   @default(PENDIENTE_VALIDACION_MANUAL)
-  createdAt                DateTime      @default(now())
-  updatedAt                DateTime      @updatedAt
-
-  @@map("configuracion_reservas")
-}
-
-enum MetodoSena {
-  MERCADOPAGO
-  TRANSFERENCIA
-  AMBOS
-  SIN_SENA
-}
-
-// ─────────────────────────────────────────────────────────────────
-// PLANTILLA DE COMPROBANTE / PDF
-// ─────────────────────────────────────────────────────────────────
-model PlantillaComprobante {
-  id                   String   @id @default(cuid())
-  nombre_comercial     String   @default("Delfina Paz Beauty")
-  cuit                 String?
-  direccion            String?
-  telefono             String?
-  instagram            String?
-  logo_url             String?
-  color_principal      String   @default("#A68660")
-  texto_footer         String?
-  mostrar_logo         Boolean  @default(true)
-  mostrar_cuit         Boolean  @default(false)
-  mostrar_direccion    Boolean  @default(true)
-  mostrar_telefono     Boolean  @default(true)
-  mostrar_instagram    Boolean  @default(true)
-  mostrar_qr           Boolean  @default(false)
-  tipo_documento       String   @default("COMPROBANTE") // COMPROBANTE | RECIBO | FACTURA
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  @@map("plantilla_comprobante")
-}
-
-// ─────────────────────────────────────────────────────────────────
-// NOTIFICACIONES — panel del admin
-// ─────────────────────────────────────────────────────────────────
-model Notificacion {
-  id            String           @id @default(cuid())
-  tipo          TipoNotificacion
-  titulo        String
-  mensaje       String
-  referencia_id String?          // id del turno / pago / comprobante referenciado
-  url_destino   String?          // ruta a la que lleva el click. Ej: /admin/turnos/tablero
-  leida         Boolean          @default(false)
-  leida_at      DateTime?
-  // Si es null => notificacion global (visible para todos los admins).
-  // Si tiene valor => notificacion dirigida a ese usuario.
-  usuario_id    String?
-  createdAt     DateTime         @default(now())
-
-  @@index([leida, createdAt(sort: Desc)])
-  @@index([usuario_id, leida])
-  @@map("notificaciones")
+enum TipoMovimientoStock {
+  ENTRADA
+  SALIDA
+  AJUSTE
+  USO_PRESTACION
+  VENCIMIENTO
 }
 
 enum TipoNotificacion {
-  TURNO_NUEVO
-  TURNO_CONFIRMADO
+  TURNO_PROXIMO
   TURNO_CANCELADO
-  TURNO_VENCIDO
-  PAGO_APROBADO
-  PAGO_RECHAZADO
+  PACIENTE_EN_SALA
+  PAGO_RECIBIDO
   COMPROBANTE_PENDIENTE
-  COMPROBANTE_APROBADO
-  SISTEMA
+  STOCK_CRITICO
+  VENCIMIENTO_INSUMO
+  AUTORIZACION_PENDIENTE
+  OTRO
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  USUARIOS Y PERFILES
+// ═════════════════════════════════════════════════════════════════
+
+model Usuario {
+  id             String     @id @default(cuid())
+  email          String     @unique
+  password       String
+  nombre         String
+  apellido       String?
+  telefono       String?
+  rol            RolUsuario
+  activo         Boolean    @default(true)
+  es_profesional Boolean    @default(false)
+  es_paciente    Boolean    @default(false)
+  ultimo_login   DateTime?
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+
+  perfil_profesional PerfilProfesional?
+  paciente           Paciente?
+  turnos_creados     Turno[]            @relation("TurnosCreador")
+  evoluciones        EvolucionClinica[]
+  indicaciones       Indicacion[]
+  consentimientos    Consentimiento[]   @relation("ConsentimientoCreador")
+  documentos         DocumentoClinico[] @relation("DocumentoSubidoPor")
+  movimientos_caja   MovimientoCaja[]
+  comprobantes       Comprobante[]      @relation("ComprobanteCreador")
+  pagos_registrados  Pago[]             @relation("PagoRegistradoPor")
+  audit_logs         AuditLog[]
+  notificaciones     Notificacion[]
+}
+
+model PerfilProfesional {
+  id                     String   @id @default(cuid())
+  usuario_id             String   @unique
+  matricula              String   @unique
+  matricula_jurisdiccion String?
+  especialidad_id        String
+  subespecialidad        String?
+  duracion_consulta_min  Int      @default(30)
+  porcentaje_liquidacion Decimal? @db.Decimal(5, 2)
+  color_agenda           String?  @default("#0F766E")
+  bio                    String?
+  firma_url              String?
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  usuario      Usuario      @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  especialidad Especialidad @relation(fields: [especialidad_id], references: [id])
+
+  sedes                ProfesionalSede[]
+  horarios             HorarioProfesional[]
+  prestaciones         ProfesionalPrestacion[]
+  turnos               Turno[]                 @relation("TurnosProfesional")
+  evoluciones_firmadas EvolucionClinica[]      @relation("EvolucionProfesional")
+  liquidaciones        Liquidacion[]
+
+  @@index([especialidad_id])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  ORGANIZACIÓN (sedes, consultorios, especialidades)
+// ═════════════════════════════════════════════════════════════════
+
+model Sede {
+  id         String   @id @default(cuid())
+  nombre     String
+  direccion  String?
+  ciudad     String?
+  provincia  String?
+  telefono   String?
+  email      String?
+  activa     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  consultorios  Consultorio[]
+  profesionales ProfesionalSede[]
+  turnos        Turno[]
+}
+
+model Consultorio {
+  id          String   @id @default(cuid())
+  sede_id     String
+  nombre      String
+  numero      String?
+  descripcion String?
+  activo      Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  sede   Sede    @relation(fields: [sede_id], references: [id], onDelete: Restrict)
+  turnos Turno[]
+
+  @@unique([sede_id, nombre])
+  @@index([sede_id])
+}
+
+model Especialidad {
+  id          String   @id @default(cuid())
+  nombre      String   @unique
+  codigo      String?  @unique
+  descripcion String?
+  activa      Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  profesionales PerfilProfesional[]
+  prestaciones  Prestacion[]
+}
+
+model ProfesionalSede {
+  profesional_id String
+  sede_id        String
+  asignado_at    DateTime @default(now())
+
+  profesional PerfilProfesional @relation(fields: [profesional_id], references: [id], onDelete: Cascade)
+  sede        Sede              @relation(fields: [sede_id], references: [id], onDelete: Cascade)
+
+  @@id([profesional_id, sede_id])
+}
+
+model HorarioProfesional {
+  id             String   @id @default(cuid())
+  profesional_id String
+  sede_id        String?
+  dia_semana     Int // 0=domingo, 1=lunes, ..., 6=sábado
+  hora_inicio    String // "08:00"
+  hora_fin       String // "12:00"
+  activo         Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  profesional PerfilProfesional @relation(fields: [profesional_id], references: [id], onDelete: Cascade)
+
+  @@index([profesional_id, dia_semana])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  PACIENTES
+// ═════════════════════════════════════════════════════════════════
+
+model Paciente {
+  id                 String         @id @default(cuid())
+  usuario_id         String?        @unique
+  dni                String         @unique
+  nombre             String
+  apellido           String
+  fecha_nacimiento   DateTime?
+  sexo               Sexo           @default(SIN_DATO)
+  telefono           String?
+  email              String?
+  direccion          String?
+  ciudad             String?
+  provincia          String?
+  ocupacion          String?
+  observaciones      String?
+  estado             EstadoPaciente @default(ACTIVO)
+  created_at         DateTime       @default(now())
+  updated_at         DateTime       @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  usuario          Usuario?               @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+  historia_clinica HistoriaClinica?
+  contactos        ContactoEmergencia[]
+  coberturas       PacienteCobertura[]
+  turnos           Turno[]
+  comprobantes     Comprobante[]
+  pagos            Pago[]
+  deudas           Deuda[]
+  comunicaciones   ComunicacionPaciente[]
+  consentimientos  Consentimiento[]
+  documentos       DocumentoClinico[]
+  estudios         Estudio[]
+
+  @@index([apellido, nombre])
+  @@index([deleted_at])
+}
+
+model ContactoEmergencia {
+  id          String   @id @default(cuid())
+  paciente_id String
+  nombre      String
+  vinculo     String?
+  telefono    String
+  email       String?
+  prioritario Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  paciente Paciente @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+
+  @@index([paciente_id])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  COBERTURAS MÉDICAS
+// ═════════════════════════════════════════════════════════════════
+
+model CoberturaMedica {
+  id            String        @id @default(cuid())
+  nombre        String        @unique
+  tipo          TipoCobertura
+  codigo        String?
+  cuit          String?
+  telefono      String?
+  email         String?
+  observaciones String?
+  activa        Boolean       @default(true)
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+
+  planes         PlanCobertura[]
+  afiliaciones   PacienteCobertura[]
+  autorizaciones Autorizacion[]
+}
+
+model PlanCobertura {
+  id                   String   @id @default(cuid())
+  cobertura_id         String
+  nombre               String
+  codigo               String?
+  porcentaje_cobertura Decimal? @db.Decimal(5, 2)
+  observaciones        String?
+  activo               Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  cobertura    CoberturaMedica     @relation(fields: [cobertura_id], references: [id], onDelete: Cascade)
+  afiliaciones PacienteCobertura[]
+
+  @@unique([cobertura_id, nombre])
+  @@index([cobertura_id])
+}
+
+model PacienteCobertura {
+  id              String    @id @default(cuid())
+  paciente_id     String
+  cobertura_id    String
+  plan_id         String?
+  numero_afiliado String
+  vigencia_desde  DateTime?
+  vigencia_hasta  DateTime?
+  principal       Boolean   @default(true)
+  activa          Boolean   @default(true)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  paciente  Paciente        @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+  cobertura CoberturaMedica @relation(fields: [cobertura_id], references: [id], onDelete: Restrict)
+  plan      PlanCobertura?  @relation(fields: [plan_id], references: [id])
+
+  @@index([paciente_id])
+  @@index([cobertura_id])
+}
+
+model Autorizacion {
+  id               String             @id @default(cuid())
+  paciente_id      String
+  cobertura_id     String
+  prestacion_id    String?
+  numero           String?
+  estado           EstadoAutorizacion @default(PENDIENTE)
+  monto_autorizado Decimal?           @db.Decimal(12, 2)
+  vigencia_desde   DateTime?
+  vigencia_hasta   DateTime?
+  observaciones    String?
+  created_at       DateTime           @default(now())
+  updated_at       DateTime           @updatedAt
+
+  cobertura  CoberturaMedica @relation(fields: [cobertura_id], references: [id])
+  prestacion Prestacion?     @relation(fields: [prestacion_id], references: [id])
+
+  @@index([paciente_id])
+  @@index([estado])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  PRESTACIONES (servicios médicos)
+// ═════════════════════════════════════════════════════════════════
+
+model Prestacion {
+  id                        String   @id @default(cuid())
+  codigo                    String?  @unique
+  nombre                    String
+  descripcion               String?
+  especialidad_id           String?
+  duracion_min              Int      @default(30)
+  precio_particular         Decimal  @default(0) @db.Decimal(12, 2)
+  requiere_autorizacion     Boolean  @default(false)
+  requiere_consentimiento   Boolean  @default(false)
+  requiere_preparacion      Boolean  @default(false)
+  instrucciones_preparacion String?
+  activa                    Boolean  @default(true)
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
+
+  especialidad   Especialidad?           @relation(fields: [especialidad_id], references: [id])
+  profesionales  ProfesionalPrestacion[]
+  turnos         Turno[]
+  items_comprob  ItemComprobante[]
+  insumos        InsumoPrestacion[]
+  autorizaciones Autorizacion[]
+
+  @@index([especialidad_id])
+}
+
+model ProfesionalPrestacion {
+  profesional_id String
+  prestacion_id  String
+  precio_propio  Decimal? @db.Decimal(12, 2)
+  asignado_at    DateTime @default(now())
+
+  profesional PerfilProfesional @relation(fields: [profesional_id], references: [id], onDelete: Cascade)
+  prestacion  Prestacion        @relation(fields: [prestacion_id], references: [id], onDelete: Cascade)
+
+  @@id([profesional_id, prestacion_id])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  AGENDA / TURNOS
+// ═════════════════════════════════════════════════════════════════
+
+model Turno {
+  id                       String         @id @default(cuid())
+  paciente_id              String
+  profesional_id           String
+  prestacion_id            String?
+  sede_id                  String
+  consultorio_id           String?
+  fecha_hora               DateTime
+  duracion_min             Int            @default(30)
+  modalidad                ModalidadTurno @default(PRESENCIAL)
+  estado                   EstadoTurno    @default(PENDIENTE)
+  sobreturno               Boolean        @default(false)
+  lista_espera             Boolean        @default(false)
+  motivo_consulta          String?
+  observaciones            String?
+  creado_por_id            String?
+  cancelado_at             DateTime?
+  cancelado_motivo         String?
+  ingreso_sala_at          DateTime?
+  inicio_atencion_at       DateTime?
+  fin_atencion_at          DateTime?
+  recordatorio_48h_enviado Boolean        @default(false)
+  recordatorio_24h_enviado Boolean        @default(false)
+  recordatorio_2h_enviado  Boolean        @default(false)
+  created_at               DateTime       @default(now())
+  updated_at               DateTime       @updatedAt
+  deleted_at               DateTime?
+  deleted_by               String?
+  motivo_eliminacion       String?
+
+  paciente    Paciente          @relation(fields: [paciente_id], references: [id], onDelete: Restrict)
+  profesional PerfilProfesional @relation("TurnosProfesional", fields: [profesional_id], references: [id], onDelete: Restrict)
+  prestacion  Prestacion?       @relation(fields: [prestacion_id], references: [id])
+  sede        Sede              @relation(fields: [sede_id], references: [id], onDelete: Restrict)
+  consultorio Consultorio?      @relation(fields: [consultorio_id], references: [id])
+  creado_por  Usuario?          @relation("TurnosCreador", fields: [creado_por_id], references: [id])
+
+  evolucion      EvolucionClinica?
+  comprobantes   Comprobante[]
+  comunicaciones ComunicacionPaciente[]
+  cambios_estado CambioEstadoTurno[]
+
+  @@index([paciente_id])
+  @@index([profesional_id, fecha_hora])
+  @@index([sede_id, fecha_hora])
+  @@index([estado])
+  @@index([deleted_at])
+}
+
+model CambioEstadoTurno {
+  id              String       @id @default(cuid())
+  turno_id        String
+  estado_anterior EstadoTurno?
+  estado_nuevo    EstadoTurno
+  usuario_id      String?
+  motivo          String?
+  created_at      DateTime     @default(now())
+
+  turno Turno @relation(fields: [turno_id], references: [id], onDelete: Cascade)
+
+  @@index([turno_id])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  HISTORIA CLÍNICA
+// ═════════════════════════════════════════════════════════════════
+
+model HistoriaClinica {
+  id                      String   @id @default(cuid())
+  paciente_id             String   @unique
+  numero                  String?  @unique
+  grupo_sanguineo         String?
+  factor_rh               String?
+  observaciones_generales String?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  paciente Paciente @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+
+  evoluciones  EvolucionClinica[]
+  antecedentes Antecedente[]
+  alergias     Alergia[]
+  medicaciones MedicacionHabitual[]
+  diagnosticos Diagnostico[]
+  indicaciones Indicacion[]
+}
+
+model EvolucionClinica {
+  id                 String    @id @default(cuid())
+  historia_id        String
+  turno_id           String?   @unique
+  profesional_id     String
+  usuario_id         String // quién la cargó (puede ser admin/médico)
+  fecha              DateTime  @default(now())
+  motivo_consulta    String?
+  subjetivo          String? // S
+  objetivo           String? // O
+  analisis           String? // A
+  plan               String? // P
+  texto_libre        String?
+  firmado_at         DateTime?
+  firmado_por_id     String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  historia     HistoriaClinica   @relation(fields: [historia_id], references: [id], onDelete: Restrict)
+  turno        Turno?            @relation(fields: [turno_id], references: [id])
+  profesional  PerfilProfesional @relation("EvolucionProfesional", fields: [profesional_id], references: [id])
+  usuario      Usuario           @relation(fields: [usuario_id], references: [id])
+  diagnosticos Diagnostico[]
+  indicaciones Indicacion[]
+
+  @@index([historia_id, fecha])
+  @@index([deleted_at])
+}
+
+model Antecedente {
+  id                 String          @id @default(cuid())
+  historia_id        String
+  tipo               TipoAntecedente
+  descripcion        String
+  fecha              DateTime?
+  cie10              String?
+  activo             Boolean         @default(true)
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  historia HistoriaClinica @relation(fields: [historia_id], references: [id], onDelete: Cascade)
+
+  @@index([historia_id, tipo])
+  @@index([deleted_at])
+}
+
+model Alergia {
+  id                 String           @id @default(cuid())
+  historia_id        String
+  sustancia          String
+  severidad          SeveridadAlergia @default(LEVE)
+  reaccion           String?
+  fecha_inicio       DateTime?
+  activa             Boolean          @default(true)
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  historia HistoriaClinica @relation(fields: [historia_id], references: [id], onDelete: Cascade)
+
+  @@index([historia_id])
+  @@index([deleted_at])
+}
+
+model MedicacionHabitual {
+  id                 String    @id @default(cuid())
+  historia_id        String
+  medicamento        String
+  dosis              String?
+  frecuencia         String?
+  via                String?
+  desde              DateTime?
+  hasta              DateTime?
+  motivo             String?
+  activa             Boolean   @default(true)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  historia HistoriaClinica @relation(fields: [historia_id], references: [id], onDelete: Cascade)
+
+  @@index([historia_id])
+  @@index([deleted_at])
+}
+
+model Diagnostico {
+  id                 String    @id @default(cuid())
+  historia_id        String
+  evolucion_id       String?
+  cie10              String?
+  descripcion        String
+  fecha              DateTime  @default(now())
+  activo             Boolean   @default(true)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  historia  HistoriaClinica   @relation(fields: [historia_id], references: [id], onDelete: Cascade)
+  evolucion EvolucionClinica? @relation(fields: [evolucion_id], references: [id])
+
+  @@index([historia_id])
+  @@index([cie10])
+  @@index([deleted_at])
+}
+
+model Indicacion {
+  id                 String    @id @default(cuid())
+  historia_id        String
+  evolucion_id       String?
+  usuario_id         String
+  texto              String
+  fecha              DateTime  @default(now())
+  visible_paciente   Boolean   @default(true)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  historia  HistoriaClinica   @relation(fields: [historia_id], references: [id], onDelete: Cascade)
+  evolucion EvolucionClinica? @relation(fields: [evolucion_id], references: [id])
+  usuario   Usuario           @relation(fields: [usuario_id], references: [id])
+
+  @@index([historia_id])
+  @@index([deleted_at])
+}
+
+model Estudio {
+  id                 String    @id @default(cuid())
+  paciente_id        String
+  tipo               String
+  descripcion        String?
+  fecha_solicitud    DateTime?
+  fecha_resultado    DateTime?
+  resultado_texto    String?
+  documento_id       String?   @unique
+  solicitado_por_id  String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  paciente  Paciente          @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+  documento DocumentoClinico? @relation(fields: [documento_id], references: [id])
+
+  @@index([paciente_id])
+  @@index([deleted_at])
+}
+
+model DocumentoClinico {
+  id                 String               @id @default(cuid())
+  paciente_id        String
+  tipo               TipoDocumentoClinico
+  nombre             String
+  storage_key        String
+  url_publica        String?
+  mime_type          String?
+  tamano_bytes       Int?
+  subido_por_id      String?
+  visible_paciente   Boolean              @default(false)
+  created_at         DateTime             @default(now())
+  updated_at         DateTime             @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  paciente   Paciente @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+  subido_por Usuario? @relation("DocumentoSubidoPor", fields: [subido_por_id], references: [id])
+  estudio    Estudio?
+
+  @@index([paciente_id, tipo])
+  @@index([deleted_at])
+}
+
+model Consentimiento {
+  id                 String    @id @default(cuid())
+  paciente_id        String
+  tipo               String // ej. "Consentimiento informado para cirugía"
+  texto              String
+  firmado            Boolean   @default(false)
+  firmado_at         DateTime?
+  documento_url      String?
+  creado_por_id      String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  paciente   Paciente @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+  creado_por Usuario? @relation("ConsentimientoCreador", fields: [creado_por_id], references: [id])
+
+  @@index([paciente_id])
+  @@index([deleted_at])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  FACTURACIÓN Y COBROS
+// ═════════════════════════════════════════════════════════════════
+
+model Comprobante {
+  id                 String            @id @default(cuid())
+  numero             String?           @unique
+  tipo               TipoComprobante   @default(RECIBO)
+  paciente_id        String
+  turno_id           String?
+  fecha              DateTime          @default(now())
+  subtotal           Decimal           @default(0) @db.Decimal(12, 2)
+  descuento          Decimal           @default(0) @db.Decimal(12, 2)
+  total              Decimal           @default(0) @db.Decimal(12, 2)
+  total_pagado       Decimal           @default(0) @db.Decimal(12, 2)
+  saldo              Decimal           @default(0) @db.Decimal(12, 2)
+  estado             EstadoComprobante @default(BORRADOR)
+  observaciones      String?
+  creado_por_id      String?
+  anulado_at         DateTime?
+  anulado_motivo     String?
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  paciente   Paciente          @relation(fields: [paciente_id], references: [id], onDelete: Restrict)
+  turno      Turno?            @relation(fields: [turno_id], references: [id])
+  creado_por Usuario?          @relation("ComprobanteCreador", fields: [creado_por_id], references: [id])
+  items      ItemComprobante[]
+  pagos      Pago[]
+  deuda      Deuda?
+
+  @@index([paciente_id])
+  @@index([fecha])
+  @@index([estado])
+  @@index([deleted_at])
+}
+
+model ItemComprobante {
+  id              String   @id @default(cuid())
+  comprobante_id  String
+  prestacion_id   String?
+  descripcion     String
+  cantidad        Int      @default(1)
+  precio_unitario Decimal  @db.Decimal(12, 2)
+  subtotal        Decimal  @db.Decimal(12, 2)
+  created_at      DateTime @default(now())
+
+  comprobante Comprobante @relation(fields: [comprobante_id], references: [id], onDelete: Cascade)
+  prestacion  Prestacion? @relation(fields: [prestacion_id], references: [id])
+
+  @@index([comprobante_id])
+}
+
+model Pago {
+  id                 String    @id @default(cuid())
+  comprobante_id     String?
+  paciente_id        String
+  monto              Decimal   @db.Decimal(12, 2)
+  medio              MedioPago
+  referencia_externa String?
+  cobertura_id       String?
+  registrado_por_id  String?
+  fecha              DateTime  @default(now())
+  observaciones      String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  comprobante     Comprobante?    @relation(fields: [comprobante_id], references: [id])
+  paciente        Paciente        @relation(fields: [paciente_id], references: [id], onDelete: Restrict)
+  registrado_por  Usuario?        @relation("PagoRegistradoPor", fields: [registrado_por_id], references: [id])
+  movimiento_caja MovimientoCaja?
+
+  @@index([paciente_id])
+  @@index([fecha])
+  @@index([deleted_at])
+}
+
+model MovimientoCaja {
+  id            String    @id @default(cuid())
+  pago_id       String?   @unique
+  usuario_id    String
+  fecha         DateTime  @default(now())
+  tipo          String // INGRESO | EGRESO | AJUSTE
+  monto         Decimal   @db.Decimal(12, 2)
+  medio         MedioPago
+  concepto      String
+  observaciones String?
+  created_at    DateTime  @default(now())
+
+  pago    Pago?   @relation(fields: [pago_id], references: [id])
+  usuario Usuario @relation(fields: [usuario_id], references: [id])
+
+  @@index([fecha])
+}
+
+model Deuda {
+  id             String   @id @default(cuid())
+  paciente_id    String
+  comprobante_id String?  @unique
+  monto_original Decimal  @db.Decimal(12, 2)
+  saldo_actual   Decimal  @db.Decimal(12, 2)
+  fecha_origen   DateTime @default(now())
+  observaciones  String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  paciente    Paciente     @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+  comprobante Comprobante? @relation(fields: [comprobante_id], references: [id])
+
+  @@index([paciente_id])
+}
+
+model Liquidacion {
+  id             String    @id @default(cuid())
+  profesional_id String
+  periodo_inicio DateTime
+  periodo_fin    DateTime
+  total          Decimal   @db.Decimal(12, 2)
+  observaciones  String?
+  pagada_at      DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  profesional PerfilProfesional @relation(fields: [profesional_id], references: [id], onDelete: Restrict)
+  items       LiquidacionItem[]
+
+  @@index([profesional_id])
+}
+
+model LiquidacionItem {
+  id             String  @id @default(cuid())
+  liquidacion_id String
+  descripcion    String
+  monto          Decimal @db.Decimal(12, 2)
+  comprobante_id String?
+
+  liquidacion Liquidacion @relation(fields: [liquidacion_id], references: [id], onDelete: Cascade)
+
+  @@index([liquidacion_id])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  INSUMOS Y STOCK
+// ═════════════════════════════════════════════════════════════════
+
+model Insumo {
+  id                 String    @id @default(cuid())
+  codigo             String?   @unique
+  nombre             String
+  descripcion        String?
+  unidad             String    @default("unidad")
+  stock_actual       Int       @default(0)
+  stock_minimo       Int       @default(0)
+  proveedor          String?
+  precio_unitario    Decimal?  @db.Decimal(12, 2)
+  activo             Boolean   @default(true)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  movimientos  MovimientoStock[]
+  prestaciones InsumoPrestacion[]
+  lotes        LoteInsumo[]
+
+  @@index([deleted_at])
+}
+
+model LoteInsumo {
+  id          String    @id @default(cuid())
+  insumo_id   String
+  numero_lote String
+  vencimiento DateTime?
+  cantidad    Int       @default(0)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  insumo Insumo @relation(fields: [insumo_id], references: [id], onDelete: Cascade)
+
+  @@unique([insumo_id, numero_lote])
+  @@index([vencimiento])
+}
+
+model MovimientoStock {
+  id            String              @id @default(cuid())
+  insumo_id     String
+  lote_id       String?
+  tipo          TipoMovimientoStock
+  cantidad      Int
+  observaciones String?
+  usuario_id    String?
+  prestacion_id String?
+  turno_id      String?
+  created_at    DateTime            @default(now())
+
+  insumo Insumo @relation(fields: [insumo_id], references: [id], onDelete: Restrict)
+
+  @@index([insumo_id, created_at])
+}
+
+model InsumoPrestacion {
+  insumo_id     String
+  prestacion_id String
+  cantidad      Int    @default(1)
+
+  insumo     Insumo     @relation(fields: [insumo_id], references: [id], onDelete: Cascade)
+  prestacion Prestacion @relation(fields: [prestacion_id], references: [id], onDelete: Cascade)
+
+  @@id([insumo_id, prestacion_id])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  COMUNICACIONES Y PLANTILLAS
+// ═════════════════════════════════════════════════════════════════
+
+model PlantillaMensaje {
+  id         String            @id @default(cuid())
+  codigo     String            @unique
+  canal      CanalComunicacion
+  tipo       TipoComunicacion
+  asunto     String?
+  cuerpo     String
+  variables  String? // JSON con variables disponibles
+  activa     Boolean           @default(true)
+  created_at DateTime          @default(now())
+  updated_at DateTime          @updatedAt
+}
+
+model ComunicacionPaciente {
+  id            String             @id @default(cuid())
+  paciente_id   String
+  turno_id      String?
+  canal         CanalComunicacion
+  tipo          TipoComunicacion
+  destino       String
+  asunto        String?
+  cuerpo        String
+  estado        EstadoComunicacion @default(PENDIENTE)
+  enviada_at    DateTime?
+  entregada_at  DateTime?
+  leida_at      DateTime?
+  respondida_at DateTime?
+  error_mensaje String?
+  external_id   String?
+  metadata      String? // JSON con detalles del proveedor
+  created_at    DateTime           @default(now())
+  updated_at    DateTime           @updatedAt
+
+  paciente Paciente @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+  turno    Turno?   @relation(fields: [turno_id], references: [id])
+
+  @@index([paciente_id])
+  @@index([turno_id])
+  @@index([estado])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  AUTOMATIZACIONES Y AUDITORÍA
+// ═════════════════════════════════════════════════════════════════
+
+model AutomatizacionLog {
+  id            String   @id @default(cuid())
+  evento        String
+  workflow_id   String?
+  payload       String // JSON
+  estado        String // OK | ERROR | SKIPPED
+  error_mensaje String?
+  duracion_ms   Int?
+  created_at    DateTime @default(now())
+
+  @@index([evento])
+  @@index([created_at])
+}
+
+model AuditLog {
+  id          String          @id @default(cuid())
+  usuario_id  String?
+  accion      AccionAuditoria
+  entidad     String // "Paciente", "HistoriaClinica", "EvolucionClinica", etc.
+  entidad_id  String?
+  descripcion String?
+  diff        String? // JSON con cambios
+  ip          String?
+  user_agent  String?
+  contexto    String? // JSON con contexto adicional (ej. paciente_id si la entidad no lo es)
+  created_at  DateTime        @default(now())
+
+  usuario Usuario? @relation(fields: [usuario_id], references: [id])
+
+  @@index([entidad, entidad_id])
+  @@index([usuario_id, created_at])
+  @@index([accion, created_at])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN
+// ═════════════════════════════════════════════════════════════════
+
+model ConfiguracionClinica {
+  id              String   @id @default("singleton")
+  nombre          String   @default("Fluxtic Salud")
+  razon_social    String?
+  cuit            String?
+  telefono        String?
+  email           String?
+  sitio_web       String?
+  logo_url        String?
+  color_principal String   @default("#0F766E")
+  color_acento    String   @default("#2563EB")
+  zona_horaria    String   @default("America/Argentina/Buenos_Aires")
+  moneda          String   @default("ARS")
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+}
+
+model ConfiguracionAgenda {
+  id                         String   @id @default("singleton")
+  duracion_slot_min          Int      @default(30)
+  permite_sobreturnos        Boolean  @default(true)
+  permite_lista_espera       Boolean  @default(true)
+  anticipacion_min_horas     Int      @default(2)
+  cancelacion_min_horas      Int      @default(24)
+  recordatorio_48h           Boolean  @default(true)
+  recordatorio_24h           Boolean  @default(true)
+  recordatorio_2h            Boolean  @default(false)
+  marcar_no_show_min_minutos Int      @default(15)
+  created_at                 DateTime @default(now())
+  updated_at                 DateTime @updatedAt
+}
+
+model ConfiguracionFacturacion {
+  id                   String   @id @default("singleton")
+  requiere_sena        Boolean  @default(false)
+  monto_sena_default   Decimal? @db.Decimal(12, 2)
+  porcentaje_sena      Decimal? @db.Decimal(5, 2)
+  acepta_mercadopago   Boolean  @default(false)
+  acepta_transferencia Boolean  @default(true)
+  numerador_recibo     Int      @default(1)
+  prefijo_recibo       String?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  NOTIFICACIONES IN-APP
+// ═════════════════════════════════════════════════════════════════
+
+model Notificacion {
+  id         String           @id @default(cuid())
+  usuario_id String
+  tipo       TipoNotificacion
+  titulo     String
+  cuerpo     String?
+  link       String?
+  metadata   String?
+  leida_at   DateTime?
+  created_at DateTime         @default(now())
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id, leida_at])
+  @@index([created_at])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  TOKENS / SESIONES DEL PORTAL DEL PACIENTE
+// ═════════════════════════════════════════════════════════════════
+
+model TokenPaciente {
+  id          String    @id @default(cuid())
+  paciente_id String
+  token       String    @unique
+  proposito   String // "RESERVA_PUBLICA", "DESCARGA_DOC", etc.
+  usado_at    DateTime?
+  expira_at   DateTime
+  created_at  DateTime  @default(now())
+
+  @@index([paciente_id])
+  @@index([token])
 }
