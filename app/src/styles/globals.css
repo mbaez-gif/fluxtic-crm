@@ -1,43 +1,51 @@
 /* ═══════════════════════════════════════════════
-   DELFINA PAZ · DESIGN TOKENS
+   FLUXTIC SALUD · DESIGN TOKENS
    app/src/styles/globals.css
 ═══════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@300;400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg:         #F9F7F4;
-  --bg-2:       #F3F0EC;
-  --bg-3:       #EDE9E3;
+  /* Superficies — clínicas */
+  --bg:         #F8FAFC;
+  --bg-2:       #F1F5F9;
+  --bg-3:       #E2E8F0;
   --surface:    #FFFFFF;
-  --noir:       #1C1814;
-  --noir-2:     #3A342E;
-  --muted:      #8C847A;
-  --muted-2:    #B8B0A6;
-  --border:     #E4DDD6;
-  --border-2:   #EDE9E3;
-  --blush:      #C8A882;
-  --blush-l:    #F0E8DC;
-  --blush-d:    #A68660;
-  --rose:       #D4957A;
-  --rose-l:     #FAF0EC;
-  --sage:       #8BA888;
-  --sage-l:     #EBF2EA;
-  --gold:       #B89860;
-  --gold-l:     #F5EDD8;
-  --error:      #C45C5C;
-  --error-l:    #FAEAEA;
-  --font-d:     'Cormorant Garamond', Georgia, serif;
-  --font-b:     'DM Sans', sans-serif;
-  --font-m:     'DM Mono', monospace;
-  --nav-w:      230px;
+  /* Tinta — slate */
+  --noir:       #0F172A;
+  --noir-2:     #1E293B;
+  --muted:      #64748B;
+  --muted-2:    #94A3B8;
+  --border:     #E2E8F0;
+  --border-2:   #CBD5E1;
+  /* Primary clínico */
+  --teal:       #0F766E;
+  --teal-l:     #CCFBF1;
+  --teal-d:     #115E59;
+  /* Acentos */
+  --clinical:   #2563EB;
+  --clinical-l: #DBEAFE;
+  --salud:      #16A34A;
+  --salud-l:    #DCFCE7;
+  /* Estados */
+  --danger:     #DC2626;
+  --danger-l:   #FEE2E2;
+  --warning:    #D97706;
+  --warning-l:  #FEF3C7;
+  --info:       #0284C7;
+  --info-l:     #E0F2FE;
+  /* Fuentes */
+  --font-d:     'Inter', system-ui, sans-serif;
+  --font-b:     'Inter', system-ui, sans-serif;
+  --font-m:     'JetBrains Mono', ui-monospace, monospace;
+  --nav-w:      240px;
   --top-h:      56px;
   --r-sm:       6px;
   --r-md:       10px;
   --r-lg:       16px;
-  --shadow-sm:  0 1px 3px rgba(28,24,20,.06);
-  --shadow-md:  0 4px 16px rgba(28,24,20,.08);
-  --shadow-lg:  0 12px 40px rgba(28,24,20,.12);
+  --shadow-sm:  0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
+  --shadow-md:  0 4px 12px rgba(15,23,42,.06), 0 2px 4px rgba(15,23,42,.04);
+  --shadow-lg:  0 12px 32px rgba(15,23,42,.08), 0 4px 12px rgba(15,23,42,.04);
 }
 
 *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,43 +68,37 @@ a { text-decoration: none; color: inherit; }
 ul { list-style: none; }
 
 *:focus-visible {
-  outline: 2px solid var(--blush);
+  outline: 2px solid var(--teal);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
 
+/* Estados clínicos del turno */
 .status-badge {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: .08em;
+  letter-spacing: .06em;
   text-transform: uppercase;
   padding: 3px 8px;
   border-radius: 20px;
   flex-shrink: 0;
   display: inline-block;
 }
-.s-confirmado { background: var(--sage-l);  color: var(--sage); }
-.s-pendiente  { background: var(--gold-l);  color: var(--gold); }
-.s-en-curso   { background: var(--blush-l); color: var(--blush-d); }
-.s-completado { background: var(--bg-3);    color: var(--muted); }
-.s-cancelado  { background: var(--error-l); color: var(--error); }
+.s-pendiente       { background: var(--warning-l);  color: var(--warning); }
+.s-confirmado      { background: var(--clinical-l); color: var(--clinical); }
+.s-en-sala-espera  { background: var(--info-l);     color: var(--info); }
+.s-en-atencion     { background: var(--teal-l);     color: var(--teal-d); }
+.s-atendido        { background: var(--salud-l);    color: var(--salud-d, var(--salud)); }
+.s-cancelado       { background: var(--danger-l);   color: var(--danger); }
+.s-ausente         { background: var(--bg-3);       color: var(--muted); }
 
-.seg-chip {
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 20px;
-  display: inline-block;
-}
-.seg-final { background: var(--blush-l); color: var(--blush-d); }
-.seg-mayor { background: var(--sage-l);  color: var(--sage); }
-.seg-vip   { background: var(--gold-l);  color: var(--gold); }
+/* Aliases retrocompatibles para componentes heredados que aún no se reescribieron */
+.s-en-curso        { background: var(--teal-l);     color: var(--teal-d); }
+.s-completado      { background: var(--salud-l);    color: var(--salud); }
 
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(6px); }

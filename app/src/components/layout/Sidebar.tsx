@@ -101,9 +101,9 @@ export default function Sidebar({ open, onClose }: Props) {
     return pathname.startsWith(href);
   }
 
-  const nombre  = session?.user?.name ?? 'Delfina Paz';
+  const nombre  = session?.user?.name ?? 'Fluxtic Salud';
   const inicial = nombre[0].toUpperCase();
-  const rol     = ((session?.user as any)?.rol ?? 'owner').toLowerCase();
+  const rol     = ((session?.user as any)?.rol ?? 'admin').toLowerCase();
 
   return (
     <>
@@ -115,8 +115,14 @@ export default function Sidebar({ open, onClose }: Props) {
 
           {/* Logo */}
           <div className={styles.logoArea}>
-            <div className={styles.logoMark}>Delfina <em>Paz</em></div>
-            <div className={styles.logoTag}>Sistema de Gestión · v2.0</div>
+            <div className={styles.logoMark}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="9" y="3" width="6" height="18" rx="1.5" />
+                <rect x="3" y="9" width="18" height="6" rx="1.5" />
+              </svg>
+              Fluxtic <em>Salud</em>
+            </div>
+            <div className={styles.logoTag}>CRM Clínico · v0.1</div>
           </div>
 
           {/* Nav */}

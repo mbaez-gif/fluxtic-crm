@@ -36,7 +36,7 @@ export default function Topbar({ pathname, onMenuToggle }: Props) {
 
   // First name only
   const nombreCompleto = session?.user?.name ?? '';
-  const nombre = nombreCompleto.split(' ')[0] || 'Delfina';
+  const nombre = nombreCompleto.split(' ')[0] || 'Usuario';
 
   // Full date
   const hoy = new Date();

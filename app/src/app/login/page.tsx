@@ -8,8 +8,8 @@ export default function LoginPage() {
       <div className={styles.card}>
 
         <div className={styles.logoArea}>
-          <div className={styles.logoMark}>Delfina <em>Paz</em></div>
-          <div className={styles.logoTag}>Sistema de Gestión</div>
+          <div className={styles.logoMark}>Fluxtic <em>Salud</em></div>
+          <div className={styles.logoTag}>CRM Clínico</div>
         </div>
 
         <div className={styles.divider} />

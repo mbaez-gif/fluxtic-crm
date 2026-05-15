@@ -4,8 +4,8 @@ import SessionProvider from '@/components/providers/SessionProvider'
 import '../styles/globals.css'
 
 export const metadata: Metadata = {
-  title: 'Delfina Paz · Sistema de Gestión',
-  description: 'Panel de gestión para Delfina Paz',
+  title: 'Fluxtic Salud · CRM Clínico',
+  description: 'CRM clínico para clínicas, consultorios y centros médicos',
 }
 
 export default function RootLayout({
