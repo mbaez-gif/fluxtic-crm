@@ -239,6 +239,82 @@ export function usePlantillasHc(especialidadId?: string) {
   })
 }
 
+// ── Mutations para Especialidades/Prestaciones/Profesionales ────
+export function useCrearEspecialidad() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/especialidades', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['especialidades'] }),
+  })
+}
+
+export function useActualizarEspecialidad() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => api.patch(`/especialidades/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['especialidades'] }),
+  })
+}
+
+export function useCrearPrestacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/prestaciones', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prestaciones'] }),
+  })
+}
+
+export function useActualizarPrestacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => api.patch(`/prestaciones/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prestaciones'] }),
+  })
+}
+
+export function useCrearProfesional() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/profesionales', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profesionales'] }),
+  })
+}
+
+export function useProfesional(id: string | undefined) {
+  return useQuery({
+    queryKey: ['profesional', id],
+    queryFn: () => api.get<any>(`/profesionales/${id}`),
+    enabled: !!id,
+  })
+}
+
+export function useActualizarProfesional() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => api.patch(`/profesionales/${id}`, body),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['profesionales'] })
+      qc.invalidateQueries({ queryKey: ['profesional', vars.id] })
+    },
+  })
+}
+
+export function useAgregarHorario() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/profesionales/horarios', body),
+    onSuccess: (_d, body: any) => qc.invalidateQueries({ queryKey: ['profesional', body.profesional_id] }),
+  })
+}
+
+export function useEliminarHorario() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/profesionales/horarios/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profesional'] }),
+  })
+}
+
 // ── Mutations típicas ──────────────────────────────────────────
 export function useCrearTurno() {
   const qc = useQueryClient()
