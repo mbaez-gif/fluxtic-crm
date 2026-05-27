@@ -1,6 +1,7 @@
 // app/src/app/layout.tsx
 import type { Metadata } from 'next'
 import SessionProvider from '@/components/providers/SessionProvider'
+import QueryProvider from '@/components/providers/QueryProvider'
 import '../styles/globals.css'
 
 export const metadata: Metadata = {
@@ -17,7 +18,9 @@ export default function RootLayout({
     <html lang="es">
       <body>
         <SessionProvider>
-          {children}
+          <QueryProvider>
+            {children}
+          </QueryProvider>
         </SessionProvider>
       </body>
     </html>
