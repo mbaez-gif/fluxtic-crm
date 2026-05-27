@@ -378,6 +378,75 @@ export function useDeudas() {
   })
 }
 
+// ── Comunicaciones / Plantillas WhatsApp ───────────────────────
+export function useComunicaciones(filtros: { paciente_id?: string; tipo?: string; canal?: string; estado?: string } = {}) {
+  return useQuery({
+    queryKey: ['comunicaciones', filtros],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      Object.entries(filtros).forEach(([k, v]) => { if (v) params.set(k, String(v)) })
+      return api.get<{ data: any[]; total: number }>(`/comunicaciones?${params.toString()}`)
+    },
+  })
+}
+
+export function usePlantillasMensaje() {
+  return useQuery({
+    queryKey: ['plantillas-mensaje'],
+    queryFn: () => api.get<any[]>('/comunicaciones/plantillas'),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useCrearPlantilla() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/comunicaciones/plantillas', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['plantillas-mensaje'] }),
+  })
+}
+
+export function useActualizarPlantilla() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => api.patch(`/comunicaciones/plantillas/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['plantillas-mensaje'] }),
+  })
+}
+
+// ── Configuración (singletons) ─────────────────────────────────
+export function useConfiguracionClinica() {
+  return useQuery({
+    queryKey: ['config-clinica'],
+    queryFn: () => api.get<any>('/configuracion/clinica').catch(() => null),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useFeriados(anio?: number) {
+  const a = anio ?? new Date().getFullYear()
+  return useQuery({
+    queryKey: ['feriados', a],
+    queryFn: () => api.get<any[]>(`/clinico/feriados?anio=${a}`),
+  })
+}
+
+export function useCrearFeriado() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/clinico/feriados', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['feriados'] }),
+  })
+}
+
+export function useEliminarFeriado() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/clinico/feriados/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['feriados'] }),
+  })
+}
+
 // ── Mutations típicas ──────────────────────────────────────────
 export function useCrearTurno() {
   const qc = useQueryClient()
