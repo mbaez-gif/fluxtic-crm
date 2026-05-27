@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale'
 import {
   useEspecialidades, useProfesionales, usePrestaciones, useSedes,
   useDisponibilidad, useConfigPublica, useCrearReservaPublica,
+  useCoberturas,
 } from '@/hooks/useApi'
 
 type Paso = 1 | 2 | 3 | 4 | 5
@@ -16,7 +17,9 @@ export default function ReservarTurnoPage() {
   const [profesionalId, setProfesionalId] = useState('')
   const [prestacionId, setPrestacionId] = useState('')
   const [sedeId, setSedeId] = useState('')
-  const [coberturaTexto, setCoberturaTexto] = useState('Particular')
+  const [coberturaId, setCoberturaId] = useState('')   // '' = particular
+  const [planId, setPlanId] = useState('')
+  const [numeroAfiliado, setNumeroAfiliado] = useState('')
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date | null>(null)
   const [slotSeleccionado, setSlotSeleccionado] = useState<{ inicio: string; profesional_id: string; profesional_nombre: string } | null>(null)
   const [datos, setDatos] = useState({ dni: '', nombre: '', apellido: '', telefono: '', email: '' })
@@ -27,6 +30,8 @@ export default function ReservarTurnoPage() {
   const profesionales = useProfesionales(especialidadId || undefined)
   const prestaciones = usePrestaciones(especialidadId || undefined)
   const sedes = useSedes()
+  const coberturas = useCoberturas()
+  const coberturaSeleccionada = coberturas.data?.find((c: any) => c.id === coberturaId)
   const crear = useCrearReservaPublica()
 
   const desdeISO = fechaSeleccionada ? fechaSeleccionada.toISOString() : ''
@@ -50,7 +55,13 @@ export default function ReservarTurnoPage() {
         fecha_hora: slotSeleccionado.inicio,
         modalidad: 'PRESENCIAL',
         motivo_consulta: null,
-        paciente: { ...datos },
+        paciente: {
+          ...datos,
+          // Solo enviamos cobertura si seleccionó una real (no Particular)
+          cobertura_id: coberturaId || null,
+          plan_id: planId || null,
+          numero_afiliado: coberturaId ? (numeroAfiliado || null) : null,
+        },
       })
       setResultado(res)
       setPaso(5)
@@ -92,14 +103,24 @@ export default function ReservarTurnoPage() {
               </select>
             </Field>
             <Field label="Cobertura">
-              <select value={coberturaTexto} onChange={(e) => setCoberturaTexto(e.target.value)} style={input}>
-                <option value="Particular">Particular</option>
-                <option value="OSDE">OSDE</option>
-                <option value="Swiss Medical">Swiss Medical</option>
-                <option value="Galeno">Galeno</option>
-                <option value="OTRA">Otra</option>
+              <select value={coberturaId} onChange={(e) => { setCoberturaId(e.target.value); setPlanId('') }} style={input}>
+                <option value="">Particular (sin cobertura)</option>
+                {coberturas.data?.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
             </Field>
+            {coberturaId && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <Field label="Plan (opcional)">
+                  <select value={planId} onChange={(e) => setPlanId(e.target.value)} style={input}>
+                    <option value="">Sin plan específico</option>
+                    {coberturaSeleccionada?.planes?.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                  </select>
+                </Field>
+                <Field label="N° de afiliado *">
+                  <input value={numeroAfiliado} onChange={(e) => setNumeroAfiliado(e.target.value)} placeholder="Ej. 1234567" required={!!coberturaId} style={input} />
+                </Field>
+              </div>
+            )}
             <Field label="Profesional (opcional, sino lo elegimos)">
               <select value={profesionalId} onChange={(e) => setProfesionalId(e.target.value)} disabled={!especialidadId} style={input}>
                 <option value="">Cualquier profesional disponible</option>
@@ -208,7 +229,7 @@ export default function ReservarTurnoPage() {
               profesional={slotSeleccionado?.profesional_nombre}
               sede={sedes.data?.find((s: any) => s.id === sedeId)?.nombre}
               fecha_hora={slotSeleccionado?.inicio}
-              cobertura={coberturaTexto}
+              cobertura={coberturaId ? `${coberturaSeleccionada?.nombre}${numeroAfiliado ? ` · Afiliado ${numeroAfiliado}` : ''}` : 'Particular'}
               paciente={datos}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
