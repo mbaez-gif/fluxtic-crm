@@ -214,31 +214,47 @@ function Efectividad({ desde, hasta }: { desde: string; hasta: string }) {
   const { data, isLoading } = useReporte('efectividad-recordatorios', desde, hasta)
   if (isLoading) return <Loading />
   if (!data) return <Empty />
+
+  const ventanas: Array<{ key: '48h' | '24h' | '2h'; label: string }> = [
+    { key: '48h', label: '48 horas antes' },
+    { key: '24h', label: '24 horas antes' },
+    { key: '2h', label: '2 horas antes' },
+  ]
+  const chartData = ventanas.map((v) => ({
+    name: v.label,
+    Con: data[`ventana_${v.key}`]?.con?.tasa ?? 0,
+    Sin: data[`ventana_${v.key}`]?.sin?.tasa ?? 0,
+  }))
+
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-        <Card titulo="Con recordatorio enviado">
-          <Kpi label="Total" value={data.con_recordatorio.total} />
-          <Kpi label="Atendidos" value={data.con_recordatorio.atendidos} color="var(--salud)" />
-          <Kpi label="Tasa atención" value={`${data.con_recordatorio.tasa}%`} color="var(--salud)" />
-        </Card>
-        <Card titulo="Sin recordatorio">
-          <Kpi label="Total" value={data.sin_recordatorio.total} />
-          <Kpi label="Atendidos" value={data.sin_recordatorio.atendidos} />
-          <Kpi label="Tasa atención" value={`${data.sin_recordatorio.tasa}%`} color={data.sin_recordatorio.tasa < data.con_recordatorio.tasa ? 'var(--danger)' : 'var(--noir)'} />
-        </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+        {ventanas.map((v) => {
+          const d = data[`ventana_${v.key}`]
+          if (!d) return null
+          return (
+            <Card key={v.key} titulo={v.label}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <Kpi label="Con (tasa)" value={`${d.con.tasa}%`} color="var(--salud)" />
+                <Kpi label="Sin (tasa)" value={`${d.sin.tasa}%`} color={d.sin.tasa < d.con.tasa ? 'var(--danger)' : 'var(--noir)'} />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
+                Con recordatorio: {d.con.atendidos}/{d.con.total} · Sin: {d.sin.atendidos}/{d.sin.total}
+              </div>
+            </Card>
+          )
+        })}
       </div>
-      <Card titulo="Comparativa">
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={[
-            { name: 'Con recordatorio', tasa: data.con_recordatorio.tasa },
-            { name: 'Sin recordatorio', tasa: data.sin_recordatorio.tasa },
-          ]}>
+      <Card titulo="Comparativa por ventana">
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-2)" />
             <XAxis dataKey="name" stroke="var(--muted)" />
             <YAxis domain={[0, 100]} stroke="var(--muted)" tickFormatter={(v) => `${v}%`} />
             <Tooltip formatter={(v: any) => `${v}%`} />
-            <Bar dataKey="tasa" fill="var(--teal)" radius={[4, 4, 0, 0]} />
+            <Legend />
+            <Bar dataKey="Con" fill="var(--teal)" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Sin" fill="var(--danger)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Card>

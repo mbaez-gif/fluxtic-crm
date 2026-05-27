@@ -172,28 +172,33 @@ export async function reportesRoutes(app: FastifyInstance) {
     return { periodo: { desde, hasta }, nuevos, recurrentes, inactivos, total_activos: total }
   })
 
-  // Efectividad de recordatorios
+  // Efectividad de recordatorios — por ventana (48h / 24h / 2h)
+  // Para cada ventana compara tasa de asistencia (estado=ATENDIDO) entre turnos
+  // con recordatorio enviado vs sin recordatorio.
   app.get('/efectividad-recordatorios', async (request) => {
     request.requirePermiso('reporte:ver')
     const { desde, hasta } = parsearRango(request.query)
-    const [conRecord, sinRecord, atendCon, atendSin] = await Promise.all([
-      prisma.turno.count({
-        where: { fecha_hora: { gte: desde, lte: hasta }, recordatorio_24h_enviado: true },
-      }),
-      prisma.turno.count({
-        where: { fecha_hora: { gte: desde, lte: hasta }, recordatorio_24h_enviado: false },
-      }),
-      prisma.turno.count({
-        where: { fecha_hora: { gte: desde, lte: hasta }, recordatorio_24h_enviado: true, estado: 'ATENDIDO' },
-      }),
-      prisma.turno.count({
-        where: { fecha_hora: { gte: desde, lte: hasta }, recordatorio_24h_enviado: false, estado: 'ATENDIDO' },
-      }),
-    ])
-    return {
-      periodo: { desde, hasta },
-      con_recordatorio: { total: conRecord, atendidos: atendCon, tasa: conRecord > 0 ? Math.round((atendCon / conRecord) * 100) : 0 },
-      sin_recordatorio: { total: sinRecord, atendidos: atendSin, tasa: sinRecord > 0 ? Math.round((atendSin / sinRecord) * 100) : 0 },
+    const rangoBase = { fecha_hora: { gte: desde, lte: hasta } }
+
+    async function comparativa(flag: 'recordatorio_48h_enviado' | 'recordatorio_24h_enviado' | 'recordatorio_2h_enviado') {
+      const [total_con, atend_con, total_sin, atend_sin] = await Promise.all([
+        prisma.turno.count({ where: { ...rangoBase, [flag]: true } as any }),
+        prisma.turno.count({ where: { ...rangoBase, [flag]: true, estado: 'ATENDIDO' } as any }),
+        prisma.turno.count({ where: { ...rangoBase, [flag]: false } as any }),
+        prisma.turno.count({ where: { ...rangoBase, [flag]: false, estado: 'ATENDIDO' } as any }),
+      ])
+      return {
+        con: { total: total_con, atendidos: atend_con, tasa: total_con > 0 ? Math.round((atend_con / total_con) * 100) : 0 },
+        sin: { total: total_sin, atendidos: atend_sin, tasa: total_sin > 0 ? Math.round((atend_sin / total_sin) * 100) : 0 },
+      }
     }
+
+    const [ventana_48h, ventana_24h, ventana_2h] = await Promise.all([
+      comparativa('recordatorio_48h_enviado'),
+      comparativa('recordatorio_24h_enviado'),
+      comparativa('recordatorio_2h_enviado'),
+    ])
+
+    return { periodo: { desde, hasta }, ventana_48h, ventana_24h, ventana_2h }
   })
 }
