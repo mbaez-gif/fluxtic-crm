@@ -39,6 +39,90 @@ async function main() {
     update: {},
   })
 
+  // ── Plantillas de mensajes (WhatsApp) ────────────────────────
+  const plantillas = [
+    {
+      codigo: 'wa_confirmacion_turno',
+      canal: 'WHATSAPP' as const,
+      tipo: 'CONFIRMACION_TURNO' as const,
+      asunto: null,
+      cuerpo: 'Hola {{nombre}} 👋 Confirmamos tu turno con {{profesional}} ({{especialidad}}) el *{{fecha}}* a las *{{hora}}* en {{sede}}. Si no podés asistir respondé *CANCELAR*.',
+      variables: ['nombre', 'profesional', 'especialidad', 'fecha', 'hora', 'sede'],
+    },
+    {
+      codigo: 'wa_recordatorio_48h',
+      canal: 'WHATSAPP' as const,
+      tipo: 'RECORDATORIO_48H' as const,
+      asunto: null,
+      cuerpo: 'Hola {{nombre}}, te recordamos tu turno con {{profesional}} en 48 hs, el {{fecha}} a las {{hora}}.',
+      variables: ['nombre', 'profesional', 'fecha', 'hora'],
+    },
+    {
+      codigo: 'wa_recordatorio_24h',
+      canal: 'WHATSAPP' as const,
+      tipo: 'RECORDATORIO_24H' as const,
+      asunto: null,
+      cuerpo: 'Hola {{nombre}} 😊 Mañana a las {{hora}} tenés turno con {{profesional}} en {{sede}}. Respondé *SI* para confirmar o *NO* para cancelar.',
+      variables: ['nombre', 'profesional', 'sede', 'hora'],
+    },
+    {
+      codigo: 'wa_recordatorio_2h',
+      canal: 'WHATSAPP' as const,
+      tipo: 'RECORDATORIO_2H' as const,
+      asunto: null,
+      cuerpo: 'Hola {{nombre}}, te esperamos en {{sede_direccion}} en 2 hs para tu turno con {{profesional}}.',
+      variables: ['nombre', 'profesional', 'sede_direccion'],
+    },
+    {
+      codigo: 'wa_preparacion_previa',
+      canal: 'WHATSAPP' as const,
+      tipo: 'PREPARACION_PREVIA' as const,
+      asunto: null,
+      cuerpo: 'Hola {{nombre}}, para tu {{prestacion}} del {{fecha}} es importante que: {{instrucciones_preparacion}}',
+      variables: ['nombre', 'prestacion', 'fecha', 'instrucciones_preparacion'],
+    },
+    {
+      codigo: 'wa_postconsulta',
+      canal: 'WHATSAPP' as const,
+      tipo: 'POSTCONSULTA' as const,
+      asunto: null,
+      cuerpo: 'Hola {{nombre}}, ¿cómo te sentís después de tu consulta con {{profesional}}? Si tenés dudas sobre las indicaciones podés responder este mensaje.',
+      variables: ['nombre', 'profesional'],
+    },
+    {
+      codigo: 'wa_pago_pendiente',
+      canal: 'WHATSAPP' as const,
+      tipo: 'PAGO_PENDIENTE' as const,
+      asunto: null,
+      cuerpo: 'Hola {{nombre}}, para confirmar tu turno necesitamos el pago de seña de ${{monto}}. Podés pagarlo acá: {{init_point}}',
+      variables: ['nombre', 'monto', 'init_point'],
+    },
+    {
+      codigo: 'wa_confirmacion_pago',
+      canal: 'WHATSAPP' as const,
+      tipo: 'CONFIRMACION_PAGO' as const,
+      asunto: null,
+      cuerpo: '✅ Recibimos tu pago. Tu turno con {{profesional}} del {{fecha}} {{hora}} quedó confirmado.',
+      variables: ['profesional', 'fecha', 'hora'],
+    },
+    {
+      codigo: 'wa_reactivacion',
+      canal: 'WHATSAPP' as const,
+      tipo: 'REACTIVACION' as const,
+      asunto: null,
+      cuerpo: 'Hola {{nombre}} 💙 Hace tiempo no te vemos por la clínica. ¿Querés agendar un chequeo? Respondé este mensaje o ingresá a {{link_portal}}.',
+      variables: ['nombre', 'link_portal'],
+    },
+  ]
+  for (const p of plantillas) {
+    const { variables, ...rest } = p
+    await prisma.plantillaMensaje.upsert({
+      where: { codigo: p.codigo },
+      create: { ...rest, variables: JSON.stringify(variables) },
+      update: {},
+    })
+  }
+
   // ── Especialidades ───────────────────────────────────────────
   const esp = {
     clinica: await prisma.especialidad.upsert({

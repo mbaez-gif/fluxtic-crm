@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { writeAudit, auditMetaFromRequest } from '../lib/audit'
 import { idParamSchema, parseOrFail, notFound } from '../lib/zod-helpers'
+import { dispararEventoN8n } from '../lib/n8n'
 
 const estadoEnum = z.enum([
   'PENDIENTE',
@@ -152,6 +153,18 @@ export async function turnosRoutes(app: FastifyInstance) {
       diff: data,
       ...auditMetaFromRequest(req),
     })
+
+    // Disparar evento a n8n (workflow de confirmación al paciente)
+    dispararEventoN8n('turno-creado', {
+      turno_id: t.id,
+      paciente_id: data.paciente_id,
+      profesional_id: data.profesional_id,
+      sede_id: data.sede_id,
+      fecha_hora: t.fecha_hora.toISOString(),
+      modalidad: t.modalidad,
+      origen: 'ADMIN',
+    }).catch(() => {})
+
     return reply.code(201).send(t)
   })
 
@@ -226,6 +239,18 @@ export async function turnosRoutes(app: FastifyInstance) {
       diff: { estado: body.estado, motivo: body.motivo },
       ...auditMetaFromRequest(req),
     })
+
+    // Eventos n8n por transición de estado
+    if (body.estado === 'CONFIRMADO') {
+      dispararEventoN8n('turno-confirmado', { turno_id: id, estado_previo: t.estado }).catch(() => {})
+    } else if (body.estado === 'CANCELADO') {
+      dispararEventoN8n('turno-cancelado', { turno_id: id, estado_previo: t.estado, motivo: body.motivo }).catch(() => {})
+    } else if (body.estado === 'AUSENTE') {
+      dispararEventoN8n('turno-no-show', { turno_id: id }).catch(() => {})
+    } else if (body.estado === 'ATENDIDO') {
+      dispararEventoN8n('turno-atendido', { turno_id: id, paciente_id: t.paciente_id }).catch(() => {})
+    }
+
     return updated
   })
 
