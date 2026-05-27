@@ -16,6 +16,7 @@ import { prisma } from '../lib/prisma'
 import { calcularSenaPrevia } from './copago.service'
 import { crearPreference } from './mercadopago.service'
 import { generateExternalReference } from '../utils/external-reference'
+import { ESTADOS_BLOQUEANTES } from './disponibilidad.service'
 
 export interface CrearReservaInput {
   prestacion_id: string
@@ -54,8 +55,6 @@ export interface CrearReservaOutput {
   reserva_expira_en: Date | null
 }
 
-const ESTADOS_BLOQUEAN = ['PENDIENTE', 'PENDIENTE_PAGO_MP', 'PENDIENTE_VALIDACION_MANUAL', 'CONFIRMADO', 'EN_SALA_ESPERA', 'EN_ATENCION']
-
 export async function crearReserva(input: CrearReservaInput): Promise<CrearReservaOutput> {
   // 1. Validar prestación
   const prestacion = await prisma.prestacion.findUnique({ where: { id: input.prestacion_id } })
@@ -80,7 +79,7 @@ export async function crearReserva(input: CrearReservaInput): Promise<CrearReser
   const conflicto = await prisma.turno.findFirst({
     where: {
       profesional_id: input.profesional_id,
-      estado: { in: ESTADOS_BLOQUEAN as any },
+      estado: { in: ESTADOS_BLOQUEANTES },
       fecha_hora: { lt: fin },
     },
   })

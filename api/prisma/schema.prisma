@@ -340,6 +340,7 @@ model PerfilProfesional {
   evoluciones_firmadas EvolucionClinica[]      @relation("EvolucionProfesional")
   liquidaciones        Liquidacion[]
   bloqueos             BloqueoAgenda[]
+  recetas              Receta[]                @relation("RecetasProfesional")
 
   @@index([especialidad_id])
 }
@@ -695,6 +696,7 @@ model Turno {
   cambios_estado             CambioEstadoTurno[]
   pagos_mp                   PagoMercadoPago[]
   comprobantes_transferencia ComprobanteTransferencia[]
+  recetas                    Receta[]
 
   @@index([paciente_id])
   @@index([profesional_id, fecha_hora])
@@ -771,6 +773,7 @@ model EvolucionClinica {
   usuario      Usuario           @relation(fields: [usuario_id], references: [id])
   diagnosticos Diagnostico[]
   indicaciones Indicacion[]
+  recetas      Receta[]
 
   @@index([historia_id, fecha])
   @@index([deleted_at])
@@ -1494,8 +1497,11 @@ model Receta {
   deleted_by         String?
   motivo_eliminacion String?
 
-  paciente Paciente     @relation(fields: [paciente_id], references: [id], onDelete: Restrict)
-  items    ItemReceta[]
+  paciente    Paciente          @relation(fields: [paciente_id], references: [id], onDelete: Restrict)
+  profesional PerfilProfesional @relation("RecetasProfesional", fields: [profesional_id], references: [id], onDelete: Restrict)
+  evolucion   EvolucionClinica? @relation(fields: [evolucion_id], references: [id])
+  turno       Turno?            @relation(fields: [turno_id], references: [id])
+  items       ItemReceta[]
 
   @@index([paciente_id])
   @@index([profesional_id])
