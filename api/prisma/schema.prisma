@@ -83,6 +83,69 @@ enum EstadoPaciente {
   BLOQUEADO
 }
 
+enum SegmentoPaciente {
+  GENERAL
+  VIP
+  CRONICO
+  SEGUIMIENTO
+  PARTICULAR
+  COBERTURA
+}
+
+enum CanalOrigen {
+  RECEPCION
+  WHATSAPP
+  WEB
+  INSTAGRAM
+  REFERIDO
+  CAMPANIA
+  PORTAL_PACIENTE
+  OTRO
+}
+
+enum SeveridadAlertaClinica {
+  INFO
+  ADVERTENCIA
+  CRITICA
+}
+
+enum TipoBloqueoAgenda {
+  DIA_COMPLETO
+  RANGO_HORARIO
+  PROFESIONAL
+  SEDE
+  CONSULTORIO
+}
+
+enum EstadoReceta {
+  BORRADOR
+  FIRMADA
+  ENVIADA
+  ANULADA
+}
+
+enum TipoOrdenMedica {
+  RECETA
+  ORDEN_ESTUDIO
+  CERTIFICADO
+  INDICACION_MEDICA
+}
+
+enum EstadoVideoconsulta {
+  PENDIENTE
+  EN_CURSO
+  FINALIZADA
+  CANCELADA
+}
+
+enum ProveedorVideoconsulta {
+  JITSI
+  GOOGLE_MEET
+  WHEREBY
+  ZOOM
+  CUSTOM
+}
+
 enum Sexo {
   FEMENINO
   MASCULINO
@@ -276,6 +339,7 @@ model PerfilProfesional {
   turnos               Turno[]                 @relation("TurnosProfesional")
   evoluciones_firmadas EvolucionClinica[]      @relation("EvolucionProfesional")
   liquidaciones        Liquidacion[]
+  bloqueos             BloqueoAgenda[]
 
   @@index([especialidad_id])
 }
@@ -299,6 +363,7 @@ model Sede {
   consultorios  Consultorio[]
   profesionales ProfesionalSede[]
   turnos        Turno[]
+  bloqueos      BloqueoAgenda[]
 }
 
 model Consultorio {
@@ -311,8 +376,9 @@ model Consultorio {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  sede   Sede    @relation(fields: [sede_id], references: [id], onDelete: Restrict)
-  turnos Turno[]
+  sede     Sede            @relation(fields: [sede_id], references: [id], onDelete: Restrict)
+  turnos   Turno[]
+  bloqueos BloqueoAgenda[]
 
   @@unique([sede_id, nombre])
   @@index([sede_id])
@@ -363,13 +429,13 @@ model HorarioProfesional {
 // ═════════════════════════════════════════════════════════════════
 
 model Paciente {
-  id                 String         @id @default(cuid())
-  usuario_id         String?        @unique
-  dni                String         @unique
+  id                 String           @id @default(cuid())
+  usuario_id         String?          @unique
+  dni                String           @unique
   nombre             String
   apellido           String
   fecha_nacimiento   DateTime?
-  sexo               Sexo           @default(SIN_DATO)
+  sexo               Sexo             @default(SIN_DATO)
   telefono           String?
   email              String?
   direccion          String?
@@ -377,9 +443,16 @@ model Paciente {
   provincia          String?
   ocupacion          String?
   observaciones      String?
-  estado             EstadoPaciente @default(ACTIVO)
-  created_at         DateTime       @default(now())
-  updated_at         DateTime       @updatedAt
+  estado             EstadoPaciente   @default(ACTIVO)
+  segmento           SegmentoPaciente @default(GENERAL)
+  canal_origen       CanalOrigen      @default(RECEPCION)
+  referido_por       String?
+  campania_origen    String?
+  ultima_atencion_at DateTime?
+  total_turnos       Int              @default(0)
+  total_gastado      Decimal          @default(0) @db.Decimal(12, 2)
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
   deleted_at         DateTime?
   deleted_by         String?
   motivo_eliminacion String?
@@ -396,9 +469,14 @@ model Paciente {
   consentimientos  Consentimiento[]
   documentos       DocumentoClinico[]
   estudios         Estudio[]
+  alertas_clinicas AlertaClinica[]
+  recetas          Receta[]
+  encuestas        EncuestaSatisfaccion[]
 
   @@index([apellido, nombre])
   @@index([deleted_at])
+  @@index([segmento])
+  @@index([canal_origen])
 }
 
 model ContactoEmergencia {
@@ -514,6 +592,7 @@ model Prestacion {
   requiere_autorizacion     Boolean  @default(false)
   requiere_consentimiento   Boolean  @default(false)
   requiere_preparacion      Boolean  @default(false)
+  permite_telemedicina      Boolean  @default(false)
   instrucciones_preparacion String?
   activa                    Boolean  @default(true)
   created_at                DateTime @default(now())
@@ -569,6 +648,19 @@ model Turno {
   recordatorio_48h_enviado Boolean        @default(false)
   recordatorio_24h_enviado Boolean        @default(false)
   recordatorio_2h_enviado  Boolean        @default(false)
+
+  // Mensajería contextual del turno
+  mensaje_interno        String? // visible solo al equipo (recepción/profesional)
+  mensaje_paciente       String? // visible al paciente (en portal y comunicaciones)
+  computa_disponibilidad Boolean @default(true)
+
+  // Telemedicina
+  videoconsulta_proveedor ProveedorVideoconsulta?
+  videoconsulta_url       String?
+  videoconsulta_room      String?
+  videoconsulta_estado    EstadoVideoconsulta?
+  videoconsulta_inicio_at DateTime?
+  videoconsulta_fin_at    DateTime?
 
   // Copago / seña previa (heredado del flujo Delfina, adaptado a clínica)
   requiere_copago       Boolean       @default(false)
@@ -1305,4 +1397,196 @@ model ComprobanteTransferencia {
 
   @@index([turno_id])
   @@index([estado])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  BLOQUEOS DE AGENDA
+// ═════════════════════════════════════════════════════════════════
+
+model BloqueoAgenda {
+  id                String            @id @default(cuid())
+  tipo              TipoBloqueoAgenda
+  desde             DateTime
+  hasta             DateTime
+  profesional_id    String?
+  sede_id           String?
+  consultorio_id    String?
+  motivo            String
+  cancela_turnos    Boolean           @default(false)
+  turnos_cancelados Int               @default(0)
+  creado_por_id     String?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  profesional PerfilProfesional? @relation(fields: [profesional_id], references: [id], onDelete: Cascade)
+  sede        Sede?              @relation(fields: [sede_id], references: [id], onDelete: Cascade)
+  consultorio Consultorio?       @relation(fields: [consultorio_id], references: [id], onDelete: Cascade)
+
+  @@index([desde, hasta])
+  @@index([profesional_id])
+  @@index([sede_id])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  FERIADOS Y CALENDARIO CLÍNICA
+// ═════════════════════════════════════════════════════════════════
+
+model FeriadoClinica {
+  id            String   @id @default(cuid())
+  fecha         DateTime @unique
+  nombre        String
+  cierra_total  Boolean  @default(true)
+  observaciones String?
+  created_at    DateTime @default(now())
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  ALERTAS CLÍNICAS DEL PACIENTE
+//  (banner permanente en la ficha — alergias críticas, condiciones especiales)
+// ═════════════════════════════════════════════════════════════════
+
+model AlertaClinica {
+  id            String                 @id @default(cuid())
+  paciente_id   String
+  titulo        String
+  descripcion   String?
+  severidad     SeveridadAlertaClinica @default(INFO)
+  activa        Boolean                @default(true)
+  creada_por_id String?
+  created_at    DateTime               @default(now())
+  updated_at    DateTime               @updatedAt
+
+  paciente Paciente @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+
+  @@index([paciente_id, activa])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  RECETAS ELECTRÓNICAS Y ÓRDENES MÉDICAS
+// ═════════════════════════════════════════════════════════════════
+
+model Receta {
+  id                 String          @id @default(cuid())
+  numero             String?         @unique
+  tipo               TipoOrdenMedica @default(RECETA)
+  paciente_id        String
+  profesional_id     String
+  evolucion_id       String?
+  turno_id           String?
+  fecha              DateTime        @default(now())
+  estado             EstadoReceta    @default(BORRADOR)
+  diagnostico_cie10  String?
+  diagnostico_texto  String?
+  observaciones      String?
+  // Firma electrónica
+  firmada_at         DateTime?
+  firma_hash         String? // hash SHA-256 del contenido firmado
+  // Envío
+  enviada_at         DateTime?
+  enviada_canal      String? // WHATSAPP / EMAIL
+  pdf_url            String?
+  // Integración futura con proveedor externo
+  proveedor_externo  String?
+  external_id        String?
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
+
+  paciente Paciente     @relation(fields: [paciente_id], references: [id], onDelete: Restrict)
+  items    ItemReceta[]
+
+  @@index([paciente_id])
+  @@index([profesional_id])
+  @@index([estado])
+  @@index([deleted_at])
+}
+
+model ItemReceta {
+  id             String   @id @default(cuid())
+  receta_id      String
+  medicamento_id String?
+  descripcion    String // nombre del medicamento (denormalizado por si cambia el vademécum)
+  presentacion   String? // ej. "20 mg comprimidos"
+  cantidad       String? // ej. "30 comprimidos"
+  posologia      String? // ej. "1 comprimido cada 8 horas"
+  duracion       String? // ej. "7 días"
+  via            String? // oral, IM, subcutánea, etc.
+  observaciones  String?
+  orden          Int      @default(0)
+  created_at     DateTime @default(now())
+
+  receta      Receta       @relation(fields: [receta_id], references: [id], onDelete: Cascade)
+  medicamento Medicamento? @relation(fields: [medicamento_id], references: [id])
+
+  @@index([receta_id])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  VADEMÉCUM LOCAL — caché de medicamentos
+//  (futura integración con vademécum externo, ej. Manuel Alfonsín / Kairos)
+// ═════════════════════════════════════════════════════════════════
+
+model Medicamento {
+  id                     String   @id @default(cuid())
+  codigo_externo         String?  @unique // ID del vademécum externo
+  nombre_comercial       String
+  principio_activo       String
+  laboratorio            String?
+  presentacion           String? // forma + concentración
+  via_admin              String?
+  prescripcion_requerida Boolean  @default(true)
+  activo                 Boolean  @default(true)
+  // Interacciones (lista de principios activos con los que interactúa)
+  interacciones          String? // JSON serializado: [{ principio, severidad, descripcion }]
+  contraindicaciones     String?
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  items_receta ItemReceta[]
+
+  @@index([principio_activo])
+  @@index([nombre_comercial])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  PLANTILLAS DE HISTORIA CLÍNICA POR ESPECIALIDAD
+// ═════════════════════════════════════════════════════════════════
+
+model PlantillaHistoriaClinica {
+  id              String   @id @default(cuid())
+  codigo          String   @unique
+  nombre          String
+  especialidad_id String?
+  estructura      String // JSON con campos del template (label, type, required)
+  texto_base      String? // texto pre-cargado
+  activa          Boolean  @default(true)
+  creada_por_id   String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  ENCUESTAS DE SATISFACCIÓN POST-CONSULTA
+// ═════════════════════════════════════════════════════════════════
+
+model EncuestaSatisfaccion {
+  id             String    @id @default(cuid())
+  paciente_id    String
+  turno_id       String?   @unique
+  profesional_id String?
+  enviada_at     DateTime  @default(now())
+  respondida_at  DateTime?
+  puntaje        Int? // 1-5 o 1-10
+  nps_score      Int? // 0-10
+  comentario     String?
+  recomendaria   Boolean?
+  canal_envio    String? // WHATSAPP / EMAIL
+  created_at     DateTime  @default(now())
+
+  paciente Paciente @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+
+  @@index([paciente_id])
+  @@index([respondida_at])
 }
