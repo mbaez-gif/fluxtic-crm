@@ -24,6 +24,8 @@ import { dashboardRoutes } from './routes/dashboard'
 import { webhooksRoutes } from './routes/webhooks'
 import { pagosMpRoutes } from './routes/pagos-mp'
 import { comunicacionesRoutes } from './routes/comunicaciones'
+import { disponibilidadRoutes } from './routes/disponibilidad'
+import { reservasPublicasRoutes } from './routes/reservas-publicas'
 
 const app = Fastify({
   logger: {
@@ -75,6 +77,8 @@ app.register(dashboardRoutes,      { prefix: '/dashboard' })
 app.register(webhooksRoutes,       { prefix: '/webhooks' })
 app.register(pagosMpRoutes,        { prefix: '/pagos-mp' })
 app.register(comunicacionesRoutes, { prefix: '/comunicaciones' })
+app.register(disponibilidadRoutes, { prefix: '/disponibilidad' })
+app.register(reservasPublicasRoutes, { prefix: '/reservas-publicas' })
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)
