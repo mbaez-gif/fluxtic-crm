@@ -468,6 +468,119 @@ export function useReporte(endpoint: string, desde?: string, hasta?: string) {
   })
 }
 
+// ── Telemedicina ───────────────────────────────────────────────
+export function useSalaVideoconsulta(turnoId: string | undefined) {
+  return useQuery({
+    queryKey: ['sala-vc', turnoId],
+    queryFn: () => api.get<any>(`/telemedicina/turno/${turnoId}/sala`),
+    enabled: !!turnoId,
+  })
+}
+
+export function useGenerarLinkVc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (turnoId: string) => api.post(`/telemedicina/turno/${turnoId}/generar-link`),
+    onSuccess: (_d, turnoId) => qc.invalidateQueries({ queryKey: ['sala-vc', turnoId] }),
+  })
+}
+
+export function useIniciarVc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (turnoId: string) => api.post(`/telemedicina/turno/${turnoId}/iniciar`),
+    onSuccess: (_d, turnoId) => {
+      qc.invalidateQueries({ queryKey: ['sala-vc', turnoId] })
+      qc.invalidateQueries({ queryKey: ['turnos'] })
+    },
+  })
+}
+
+export function useFinalizarVc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (turnoId: string) => api.post(`/telemedicina/turno/${turnoId}/finalizar`),
+    onSuccess: (_d, turnoId) => {
+      qc.invalidateQueries({ queryKey: ['sala-vc', turnoId] })
+      qc.invalidateQueries({ queryKey: ['turnos'] })
+    },
+  })
+}
+
+// ── Recetas electrónicas ───────────────────────────────────────
+export function useRecetas(pacienteId?: string) {
+  return useQuery({
+    queryKey: ['recetas', pacienteId ?? null],
+    queryFn: () => api.get<any[]>(`/recetas${pacienteId ? `?paciente_id=${pacienteId}` : ''}`),
+  })
+}
+
+export function useCrearReceta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/recetas', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recetas'] }),
+  })
+}
+
+export function useFirmarReceta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/recetas/${id}/firmar`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recetas'] }),
+  })
+}
+
+export function useEnviarReceta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, canal }: { id: string; canal: 'WHATSAPP' | 'EMAIL' }) => api.post(`/recetas/${id}/enviar`, { canal }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recetas'] }),
+  })
+}
+
+export function useBuscarMedicamentos(q: string) {
+  return useQuery({
+    queryKey: ['medicamentos-search', q],
+    queryFn: () => api.get<any[]>(`/medicamentos?q=${encodeURIComponent(q)}`),
+    enabled: q.length >= 2,
+  })
+}
+
+export function useCheckAlertasReceta() {
+  return useMutation({
+    mutationFn: ({ paciente_id, medicamento_ids }: { paciente_id: string; medicamento_ids: string[] }) =>
+      api.post<{ alertas: any[]; total: number }>('/medicamentos/check-alertas', { paciente_id, medicamento_ids }),
+  })
+}
+
+// ── Reservas públicas (config + disponibilidad) ────────────────
+export function useConfigPublica() {
+  return useQuery({
+    queryKey: ['config-publica'],
+    queryFn: () => api.get<any>('/reservas-publicas/config'),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useDisponibilidad(params: { prestacion_id?: string; profesional_id?: string; sede_id?: string; especialidad_id?: string; fecha_desde?: string; fecha_hasta?: string } = {}) {
+  return useQuery({
+    queryKey: ['disponibilidad', params],
+    queryFn: async () => {
+      const q = new URLSearchParams()
+      Object.entries(params).forEach(([k, v]) => { if (v) q.set(k, v) })
+      return api.get<any>(`/disponibilidad?${q.toString()}`)
+    },
+    enabled: !!params.prestacion_id && !!params.fecha_desde && !!params.fecha_hasta,
+  })
+}
+
+export function useCrearReservaPublica() {
+  return useMutation({
+    mutationFn: (body: any) => api.post<any>('/reservas-publicas', body),
+  })
+}
+
 // ── Mutations típicas ──────────────────────────────────────────
 export function useCrearTurno() {
   const qc = useQueryClient()
