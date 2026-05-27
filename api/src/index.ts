@@ -33,6 +33,7 @@ import { medicamentosRoutes } from './routes/medicamentos'
 import { recetasRoutes } from './routes/recetas'
 import { telemedicinaRoutes } from './routes/telemedicina'
 import { clinicoRoutes } from './routes/clinico'
+import { configuracionRoutes } from './routes/configuracion'
 
 const app = Fastify({
   logger: {
@@ -110,6 +111,7 @@ app.register(medicamentosRoutes,   { prefix: '/medicamentos' })
 app.register(recetasRoutes,        { prefix: '/recetas' })
 app.register(telemedicinaRoutes,   { prefix: '/telemedicina' })
 app.register(clinicoRoutes,        { prefix: '/clinico' })
+app.register(configuracionRoutes,  { prefix: '/configuracion' })
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)
