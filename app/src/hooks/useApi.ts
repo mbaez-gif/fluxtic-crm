@@ -315,6 +315,69 @@ export function useEliminarHorario() {
   })
 }
 
+// ── Facturación / Cobros / Caja ────────────────────────────────
+export function useComprobantes(filtros: { paciente_id?: string; estado?: string; desde?: string; hasta?: string } = {}) {
+  return useQuery({
+    queryKey: ['comprobantes', filtros],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      Object.entries(filtros).forEach(([k, v]) => { if (v) params.set(k, String(v)) })
+      return api.get<any[]>(`/facturacion/comprobantes?${params.toString()}`)
+    },
+  })
+}
+
+export function useComprobante(id: string | undefined) {
+  return useQuery({
+    queryKey: ['comprobante', id],
+    queryFn: () => api.get<any>(`/facturacion/comprobantes/${id}`),
+    enabled: !!id,
+  })
+}
+
+export function useCrearComprobante() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/facturacion/comprobantes', body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['comprobantes'] })
+      qc.invalidateQueries({ queryKey: ['caja'] })
+    },
+  })
+}
+
+export function useCrearPago() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/facturacion/pagos', body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['comprobantes'] })
+      qc.invalidateQueries({ queryKey: ['comprobante'] })
+      qc.invalidateQueries({ queryKey: ['caja'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useCaja(desde?: string, hasta?: string) {
+  return useQuery({
+    queryKey: ['caja', desde, hasta],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (desde) params.set('desde', desde)
+      if (hasta) params.set('hasta', hasta)
+      return api.get<any>(`/facturacion/caja?${params.toString()}`)
+    },
+  })
+}
+
+export function useDeudas() {
+  return useQuery({
+    queryKey: ['deudas'],
+    queryFn: () => api.get<any[]>('/facturacion/deudas'),
+  })
+}
+
 // ── Mutations típicas ──────────────────────────────────────────
 export function useCrearTurno() {
   const qc = useQueryClient()
