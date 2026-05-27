@@ -7,12 +7,15 @@ import { dispararEventoN8n } from '../lib/n8n'
 
 const estadoEnum = z.enum([
   'PENDIENTE',
+  'PENDIENTE_PAGO_MP',
+  'PENDIENTE_VALIDACION_MANUAL',
   'CONFIRMADO',
   'EN_SALA_ESPERA',
   'EN_ATENCION',
   'ATENDIDO',
   'CANCELADO',
   'AUSENTE',
+  'VENCIDO',
 ])
 
 const modalidadEnum = z.enum(['PRESENCIAL', 'VIRTUAL'])
@@ -34,15 +37,21 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial()
 
-// Transiciones validas de estado
+// Transiciones validas de estado.
+// Incluye los estados de pago (PENDIENTE_PAGO_MP, PENDIENTE_VALIDACION_MANUAL)
+// que pueden necesitar confirmacion manual de recepcion (ej. paciente pago por
+// otro medio o se valido el comprobante de transferencia).
 const TRANSICIONES: Record<string, string[]> = {
-  PENDIENTE:      ['CONFIRMADO', 'CANCELADO', 'AUSENTE'],
-  CONFIRMADO:     ['EN_SALA_ESPERA', 'CANCELADO', 'AUSENTE'],
-  EN_SALA_ESPERA: ['EN_ATENCION', 'CANCELADO', 'AUSENTE'],
-  EN_ATENCION:    ['ATENDIDO'],
-  ATENDIDO:       [],
-  CANCELADO:      [],
-  AUSENTE:        [],
+  PENDIENTE:                   ['CONFIRMADO', 'CANCELADO', 'AUSENTE'],
+  PENDIENTE_PAGO_MP:           ['CONFIRMADO', 'CANCELADO', 'VENCIDO'],
+  PENDIENTE_VALIDACION_MANUAL: ['CONFIRMADO', 'CANCELADO'],
+  CONFIRMADO:                  ['EN_SALA_ESPERA', 'CANCELADO', 'AUSENTE'],
+  EN_SALA_ESPERA:              ['EN_ATENCION', 'CANCELADO', 'AUSENTE'],
+  EN_ATENCION:                 ['ATENDIDO'],
+  ATENDIDO:                    [],
+  CANCELADO:                   [],
+  AUSENTE:                     [],
+  VENCIDO:                     [],
 }
 
 export async function turnosRoutes(app: FastifyInstance) {

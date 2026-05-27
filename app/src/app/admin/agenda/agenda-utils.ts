@@ -64,6 +64,16 @@ export function transicionesPermitidas(estado: string): Array<{ estado: string; 
         { estado: 'CANCELADO', label: 'Cancelar' },
         { estado: 'AUSENTE', label: 'Marcar ausente' },
       ]
+    case 'PENDIENTE_PAGO_MP':
+      return [
+        { estado: 'CONFIRMADO', label: 'Confirmar (pago verificado manualmente)' },
+        { estado: 'CANCELADO', label: 'Cancelar' },
+      ]
+    case 'PENDIENTE_VALIDACION_MANUAL':
+      return [
+        { estado: 'CONFIRMADO', label: 'Aprobar y confirmar' },
+        { estado: 'CANCELADO', label: 'Rechazar y cancelar' },
+      ]
     case 'CONFIRMADO':
       return [
         { estado: 'EN_SALA_ESPERA', label: 'Ingresar a sala' },
