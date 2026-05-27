@@ -21,6 +21,8 @@ import { auditoriaRoutes } from './routes/auditoria'
 import { portalRoutes } from './routes/portal'
 import { authRoutes } from './routes/auth'
 import { dashboardRoutes } from './routes/dashboard'
+import { webhooksRoutes } from './routes/webhooks'
+import { pagosMpRoutes } from './routes/pagos-mp'
 
 const app = Fastify({
   logger: {
@@ -69,6 +71,8 @@ app.register(auditoriaRoutes,      { prefix: '/auditoria' })
 app.register(portalRoutes,         { prefix: '/portal' })
 app.register(authRoutes)
 app.register(dashboardRoutes,      { prefix: '/dashboard' })
+app.register(webhooksRoutes,       { prefix: '/webhooks' })
+app.register(pagosMpRoutes,        { prefix: '/pagos-mp' })
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)

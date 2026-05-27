@@ -28,12 +28,47 @@ enum RolUsuario {
 
 enum EstadoTurno {
   PENDIENTE
+  PENDIENTE_PAGO_MP
+  PENDIENTE_VALIDACION_MANUAL
   CONFIRMADO
   EN_SALA_ESPERA
   EN_ATENCION
   ATENDIDO
   CANCELADO
   AUSENTE
+  VENCIDO
+}
+
+enum OrigenReserva {
+  ADMIN
+  PORTAL_PACIENTE
+  LINK_PUBLICO
+  WHATSAPP
+  TELEFONO
+  N8N
+}
+
+enum MetodoCopago {
+  SIN_COPAGO
+  MERCADOPAGO
+  TRANSFERENCIA
+  AMBOS
+}
+
+enum EstadoPagoMercadoPago {
+  CREADO
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+  VENCIDO
+  REEMBOLSADO
+  VALIDACION_MANUAL
+}
+
+enum EstadoComprobanteTransferencia {
+  PENDIENTE_REVISION
+  APROBADO
+  RECHAZADO
 }
 
 enum ModalidadTurno {
@@ -534,11 +569,26 @@ model Turno {
   recordatorio_48h_enviado Boolean        @default(false)
   recordatorio_24h_enviado Boolean        @default(false)
   recordatorio_2h_enviado  Boolean        @default(false)
-  created_at               DateTime       @default(now())
-  updated_at               DateTime       @updatedAt
-  deleted_at               DateTime?
-  deleted_by               String?
-  motivo_eliminacion       String?
+
+  // Copago / seña previa (heredado del flujo Delfina, adaptado a clínica)
+  requiere_copago       Boolean       @default(false)
+  monto_total           Decimal?      @db.Decimal(12, 2)
+  monto_copago          Decimal?      @db.Decimal(12, 2)
+  metodo_copago         MetodoCopago  @default(SIN_COPAGO)
+  reserva_expira_en     DateTime?
+  origen_reserva        OrigenReserva @default(ADMIN)
+  // Mercado Pago (último intento, denormalizado para resolver webhooks rápido)
+  mp_preference_id      String?
+  mp_init_point         String?
+  mp_external_reference String?
+  // Agrupación de turnos consecutivos en una misma reserva
+  grupo_reserva_id      String?
+
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  deleted_at         DateTime?
+  deleted_by         String?
+  motivo_eliminacion String?
 
   paciente    Paciente          @relation(fields: [paciente_id], references: [id], onDelete: Restrict)
   profesional PerfilProfesional @relation("TurnosProfesional", fields: [profesional_id], references: [id], onDelete: Restrict)
@@ -547,16 +597,21 @@ model Turno {
   consultorio Consultorio?      @relation(fields: [consultorio_id], references: [id])
   creado_por  Usuario?          @relation("TurnosCreador", fields: [creado_por_id], references: [id])
 
-  evolucion      EvolucionClinica?
-  comprobantes   Comprobante[]
-  comunicaciones ComunicacionPaciente[]
-  cambios_estado CambioEstadoTurno[]
+  evolucion                  EvolucionClinica?
+  comprobantes               Comprobante[]
+  comunicaciones             ComunicacionPaciente[]
+  cambios_estado             CambioEstadoTurno[]
+  pagos_mp                   PagoMercadoPago[]
+  comprobantes_transferencia ComprobanteTransferencia[]
 
   @@index([paciente_id])
   @@index([profesional_id, fecha_hora])
   @@index([sede_id, fecha_hora])
   @@index([estado])
   @@index([deleted_at])
+  @@index([reserva_expira_en])
+  @@index([mp_external_reference])
+  @@index([grupo_reserva_id])
 }
 
 model CambioEstadoTurno {
@@ -1192,4 +1247,62 @@ model TokenPaciente {
 
   @@index([paciente_id])
   @@index([token])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  MERCADO PAGO — pagos de copago / seña previa
+// ═════════════════════════════════════════════════════════════════
+
+model PagoMercadoPago {
+  id                   String                @id @default(cuid())
+  turno_id             String
+  provider             String                @default("MERCADOPAGO")
+  external_reference   String                @unique
+  preference_id        String?
+  payment_id           String?               @unique // idempotencia del webhook
+  merchant_order_id    String?
+  status               EstadoPagoMercadoPago @default(CREADO)
+  status_detail        String?
+  amount               Decimal               @db.Decimal(12, 2)
+  currency             String                @default("ARS")
+  init_point           String?
+  payer_email          String?
+  payer_id             String?
+  webhook_payload      String? // JSON serializado
+  raw_payment_response String? // JSON serializado
+  approved_at          DateTime?
+  rejected_at          DateTime?
+  created_at           DateTime              @default(now())
+  updated_at           DateTime              @updatedAt
+
+  turno Turno @relation(fields: [turno_id], references: [id], onDelete: Cascade)
+
+  @@index([turno_id])
+  @@index([status])
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  COMPROBANTES DE TRANSFERENCIA — copago por transferencia bancaria
+// ═════════════════════════════════════════════════════════════════
+
+model ComprobanteTransferencia {
+  id                     String                         @id @default(cuid())
+  turno_id               String
+  archivo_url            String
+  storage_key            String?
+  monto_detectado        Decimal?                       @db.Decimal(12, 2)
+  fecha_detectada        DateTime?
+  alias_detectado        String?
+  observaciones_paciente String?
+  estado                 EstadoComprobanteTransferencia @default(PENDIENTE_REVISION)
+  revisado_por_id        String?
+  revisado_at            DateTime?
+  motivo_rechazo         String?
+  created_at             DateTime                       @default(now())
+  updated_at             DateTime                       @updatedAt
+
+  turno Turno @relation(fields: [turno_id], references: [id], onDelete: Cascade)
+
+  @@index([turno_id])
+  @@index([estado])
 }
