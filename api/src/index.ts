@@ -28,6 +28,11 @@ import { disponibilidadRoutes } from './routes/disponibilidad'
 import { reservasPublicasRoutes } from './routes/reservas-publicas'
 import { reportesRoutes } from './routes/reportes'
 import { pdfRoutes } from './routes/pdf'
+import { bloqueosRoutes } from './routes/bloqueos'
+import { medicamentosRoutes } from './routes/medicamentos'
+import { recetasRoutes } from './routes/recetas'
+import { telemedicinaRoutes } from './routes/telemedicina'
+import { clinicoRoutes } from './routes/clinico'
 
 const app = Fastify({
   logger: {
@@ -83,6 +88,11 @@ app.register(disponibilidadRoutes, { prefix: '/disponibilidad' })
 app.register(reservasPublicasRoutes, { prefix: '/reservas-publicas' })
 app.register(reportesRoutes,       { prefix: '/reportes' })
 app.register(pdfRoutes,            { prefix: '/pdf' })
+app.register(bloqueosRoutes,       { prefix: '/bloqueos' })
+app.register(medicamentosRoutes,   { prefix: '/medicamentos' })
+app.register(recetasRoutes,        { prefix: '/recetas' })
+app.register(telemedicinaRoutes,   { prefix: '/telemedicina' })
+app.register(clinicoRoutes,        { prefix: '/clinico' })
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)
