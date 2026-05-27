@@ -20,6 +20,10 @@ const pacienteSchema = z.object({
   ocupacion: z.string().nullable().optional(),
   observaciones: z.string().nullable().optional(),
   estado: z.enum(['ACTIVO', 'INACTIVO', 'EN_SEGUIMIENTO', 'BLOQUEADO']).optional(),
+  segmento: z.enum(['GENERAL', 'VIP', 'CRONICO', 'SEGUIMIENTO', 'PARTICULAR', 'COBERTURA']).optional(),
+  canal_origen: z.enum(['RECEPCION', 'WHATSAPP', 'WEB', 'INSTAGRAM', 'REFERIDO', 'CAMPANIA', 'PORTAL_PACIENTE', 'OTRO']).optional(),
+  referido_por: z.string().nullable().optional(),
+  campania_origen: z.string().nullable().optional(),
 })
 
 const contactoSchema = z.object({
@@ -55,6 +59,11 @@ export async function pacientesRoutes(app: FastifyInstance) {
       ]
     }
     if (q.estado) where.estado = q.estado
+    if (q.segmento) where.segmento = q.segmento
+    if (q.canal_origen) where.canal_origen = q.canal_origen
+    if (q.cobertura_id) {
+      where.coberturas = { some: { cobertura_id: q.cobertura_id, activa: true } }
+    }
     const take = Math.min(parseInt(q.limit ?? '50', 10), 200)
     const skip = parseInt(q.offset ?? '0', 10)
     const [data, total] = await Promise.all([
@@ -69,6 +78,7 @@ export async function pacientesRoutes(app: FastifyInstance) {
             include: { cobertura: true, plan: true },
             take: 1,
           },
+          alertas_clinicas: { where: { activa: true }, select: { severidad: true } },
         },
       }),
       prisma.paciente.count({ where }),
@@ -85,7 +95,8 @@ export async function pacientesRoutes(app: FastifyInstance) {
         contactos: { orderBy: [{ prioritario: 'desc' }, { nombre: 'asc' }] },
         coberturas: { include: { cobertura: true, plan: true } },
         historia_clinica: { select: { id: true, numero: true, grupo_sanguineo: true, factor_rh: true } },
-        _count: { select: { turnos: true, comprobantes: true } },
+        alertas_clinicas: { where: { activa: true }, orderBy: { created_at: 'desc' } },
+        _count: { select: { turnos: true, comprobantes: true, recetas: true } },
       },
     })
     if (!p) return notFound(reply, 'Paciente')
@@ -97,6 +108,43 @@ export async function pacientesRoutes(app: FastifyInstance) {
       ...auditMetaFromRequest(req),
     })
     return p
+  })
+
+  // Historial completo unificado del paciente (timeline)
+  app.get('/:id/historial', async (req, reply) => {
+    req.requirePermiso('paciente:ver')
+    const { id } = parseOrFail(idParamSchema, req.params)
+    const p = await prisma.paciente.findUnique({ where: { id }, select: { id: true } })
+    if (!p) return notFound(reply, 'Paciente')
+
+    const [turnos, recetas, comprobantes, comunicaciones] = await Promise.all([
+      prisma.turno.findMany({
+        where: { paciente_id: id },
+        include: {
+          profesional: { include: { usuario: { select: { nombre: true, apellido: true } } } },
+          prestacion: { select: { nombre: true } },
+        },
+        orderBy: { fecha_hora: 'desc' },
+        take: 50,
+      }),
+      prisma.receta.findMany({
+        where: { paciente_id: id },
+        include: { items: { select: { descripcion: true }, take: 5 } },
+        orderBy: { fecha: 'desc' },
+        take: 30,
+      }),
+      prisma.comprobante.findMany({
+        where: { paciente_id: id },
+        orderBy: { fecha: 'desc' },
+        take: 30,
+      }),
+      prisma.comunicacionPaciente.findMany({
+        where: { paciente_id: id },
+        orderBy: { created_at: 'desc' },
+        take: 30,
+      }),
+    ])
+    return { turnos, recetas, comprobantes, comunicaciones }
   })
 
   app.post('/', async (req, reply) => {

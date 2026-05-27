@@ -78,13 +78,97 @@ export function useBloqueos(desde: string, hasta: string, filtros: { profesional
   })
 }
 
-// ── Pacientes (con búsqueda autocompletar) ─────────────────────
+// ── Pacientes ──────────────────────────────────────────────────
+export interface FiltrosPacientes {
+  q?: string
+  estado?: string
+  segmento?: string
+  canal_origen?: string
+  cobertura_id?: string
+  limit?: number
+  offset?: number
+}
+
+export function usePacientes(filtros: FiltrosPacientes) {
+  return useQuery({
+    queryKey: ['pacientes', filtros],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      Object.entries(filtros).forEach(([k, v]) => { if (v) params.set(k, String(v)) })
+      return api.get<{ data: any[]; total: number }>(`/pacientes?${params.toString()}`)
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
 export function useBuscarPacientes(q: string) {
   return useQuery({
     queryKey: ['pacientes-search', q],
     queryFn: () => api.get<{ data: any[]; total: number }>(`/pacientes?q=${encodeURIComponent(q)}&limit=20`),
     enabled: q.length >= 2,
     staleTime: 10 * 1000,
+  })
+}
+
+export function usePaciente(id: string | undefined) {
+  return useQuery({
+    queryKey: ['paciente', id],
+    queryFn: () => api.get<any>(`/pacientes/${id}`),
+    enabled: !!id,
+  })
+}
+
+export function useHistorialPaciente(id: string | undefined) {
+  return useQuery({
+    queryKey: ['paciente-historial', id],
+    queryFn: () => api.get<any>(`/pacientes/${id}/historial`),
+    enabled: !!id,
+  })
+}
+
+export function useCrearPaciente() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/pacientes', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pacientes'] }),
+  })
+}
+
+export function useActualizarPaciente() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => api.patch(`/pacientes/${id}`, body),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['pacientes'] })
+      qc.invalidateQueries({ queryKey: ['paciente', vars.id] })
+    },
+  })
+}
+
+export function useAlertasClinicas(pacienteId: string | undefined) {
+  return useQuery({
+    queryKey: ['alertas-clinicas', pacienteId],
+    queryFn: () => api.get<any[]>(`/clinico/alertas/paciente/${pacienteId}`),
+    enabled: !!pacienteId,
+  })
+}
+
+export function useCrearAlertaClinica() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/clinico/alertas', body),
+    onSuccess: (_d, body: any) => {
+      qc.invalidateQueries({ queryKey: ['alertas-clinicas', body.paciente_id] })
+      qc.invalidateQueries({ queryKey: ['paciente', body.paciente_id] })
+    },
+  })
+}
+
+export function useEliminarAlertaClinica() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/clinico/alertas/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alertas-clinicas'] }),
   })
 }
 
