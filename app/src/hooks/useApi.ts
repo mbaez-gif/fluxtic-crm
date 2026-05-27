@@ -447,6 +447,27 @@ export function useEliminarFeriado() {
   })
 }
 
+// ── Dashboard y reportes ───────────────────────────────────────
+export function useDashboard() {
+  return useQuery({
+    queryKey: ['dashboard'],
+    queryFn: () => api.get<any>('/dashboard'),
+    staleTime: 60 * 1000,
+  })
+}
+
+export function useReporte(endpoint: string, desde?: string, hasta?: string) {
+  return useQuery({
+    queryKey: ['reporte', endpoint, desde, hasta],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (desde) params.set('desde', desde)
+      if (hasta) params.set('hasta', hasta)
+      return api.get<any>(`/reportes/${endpoint}?${params.toString()}`)
+    },
+  })
+}
+
 // ── Mutations típicas ──────────────────────────────────────────
 export function useCrearTurno() {
   const qc = useQueryClient()
