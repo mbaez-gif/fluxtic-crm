@@ -53,13 +53,30 @@ app.register(helmet, { contentSecurityPolicy: false })
 app.register(sensible)
 app.register(authPlugin)
 
+/**
+ * Paths que SOLO pueden ser consumidos con x-internal-token.
+ * Pensados para n8n / cron jobs. Filtran data privada (telefonos, DNIs,
+ * historial de pacientes) por lo que no deben quedar abiertos a internet.
+ *
+ * Si el header no llega o no coincide con INTERNAL_API_TOKEN, devuelve 401
+ * sin tocar el handler.
+ */
+const INTERNAL_TOKEN_PATHS = [
+  '/webhooks/n8n',                          // callbacks n8n -> CRM
+  '/internal',                              // futuro: ops internas
+  '/comunicaciones/log',                    // n8n loguea WA enviados
+  '/comunicaciones/turnos-proximos',        // n8n cron recordatorios
+  '/comunicaciones/postconsulta-pendientes',// n8n cron postconsulta
+  '/comunicaciones/inactivos-reactivacion', // n8n cron reactivacion
+  '/pagos-mp/vencer',                       // n8n cron expiracion (ya validaba dentro del handler; centralizado)
+]
+
 app.addHook('preHandler', async (request, reply) => {
-  const protectedPaths = ['/webhooks/n8n', '/internal']
-  const needsToken = protectedPaths.some((p) => request.url.startsWith(p))
+  const needsToken = INTERNAL_TOKEN_PATHS.some((p) => request.url.startsWith(p))
   if (needsToken) {
     const token = request.headers['x-internal-token']
     if (!token || token !== process.env.INTERNAL_API_TOKEN) {
-      return reply.code(401).send({ error: 'Unauthorized', message: 'Token interno invalido' })
+      return reply.code(401).send({ error: 'Unauthorized', message: 'Token interno requerido' })
     }
   }
 })

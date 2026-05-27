@@ -223,13 +223,9 @@ export async function pagosMpRoutes(app: FastifyInstance) {
 
   /**
    * Cron de vencimiento de reservas — disparado por n8n cada 1 minuto.
-   * Requiere x-internal-token.
+   * Token interno validado por el preHandler global (INTERNAL_TOKEN_PATHS).
    */
-  app.post('/vencer', async (request, reply) => {
-    const token = request.headers['x-internal-token']
-    if (!token || token !== process.env.INTERNAL_API_TOKEN) {
-      return reply.code(401).send({ error: 'Unauthorized', message: 'x-internal-token requerido' })
-    }
+  app.post('/vencer', async (_request) => {
     const result = await vencerReservasExpiradas()
     if (result.vencidos > 0) {
       await prisma.automatizacionLog.create({
