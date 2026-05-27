@@ -172,6 +172,73 @@ export function useEliminarAlertaClinica() {
   })
 }
 
+// ── Historia clínica ───────────────────────────────────────────
+export function useHistoriaClinica(pacienteId: string | undefined) {
+  return useQuery({
+    queryKey: ['hc', pacienteId],
+    queryFn: () => api.get<any>(`/historia-clinica/paciente/${pacienteId}`),
+    enabled: !!pacienteId,
+  })
+}
+
+export function useCrearEvolucion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/historia-clinica/evoluciones', body),
+    onSuccess: (_d, body: any) => qc.invalidateQueries({ queryKey: ['hc', body.paciente_id] }),
+  })
+}
+
+export function useFirmarEvolucion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/historia-clinica/evoluciones/${id}/firmar`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['hc'] }),
+  })
+}
+
+export function useCrearAntecedente() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/historia-clinica/antecedentes', body),
+    onSuccess: (_d, body: any) => qc.invalidateQueries({ queryKey: ['hc', body.paciente_id] }),
+  })
+}
+
+export function useCrearAlergia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/historia-clinica/alergias', body),
+    onSuccess: (_d, body: any) => qc.invalidateQueries({ queryKey: ['hc', body.paciente_id] }),
+  })
+}
+
+export function useCrearMedicacion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/historia-clinica/medicaciones', body),
+    onSuccess: (_d, body: any) => qc.invalidateQueries({ queryKey: ['hc', body.paciente_id] }),
+  })
+}
+
+export function useEliminarItemHc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ entity, id, motivo }: { entity: string; id: string; motivo: string }) =>
+      api.delete(`/historia-clinica/${entity}/${id}`, { motivo }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['hc'] }),
+  })
+}
+
+// ── Plantillas HC por especialidad ─────────────────────────────
+export function usePlantillasHc(especialidadId?: string) {
+  return useQuery({
+    queryKey: ['plantillas-hc', especialidadId ?? null],
+    queryFn: () => api.get<any[]>(`/clinico/plantillas-hc${especialidadId ? `?especialidad_id=${especialidadId}` : ''}`),
+    staleTime: 10 * 60 * 1000,
+  })
+}
+
 // ── Mutations típicas ──────────────────────────────────────────
 export function useCrearTurno() {
   const qc = useQueryClient()
