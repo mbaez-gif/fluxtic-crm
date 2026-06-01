@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
           if (!res.ok) return null
 
           const data = await res.json()
-          if (!data?.id) return null
+          if (!data?.id || !data?.token) return null
 
           return {
             id:       data.id,
@@ -39,6 +39,7 @@ export const authOptions: NextAuthOptions = {
             permisos: data.permisos ?? [],
             perfil_profesional_id: data.perfil_profesional_id ?? null,
             paciente_id:           data.paciente_id ?? null,
+            apiToken:              data.token,   // ← JWT firmado por el backend
           }
         } catch {
           return null
@@ -50,12 +51,13 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id       = user.id
-        token.rol      = (user as any).rol
-        token.nombre   = (user as any).nombre
-        token.permisos = (user as any).permisos ?? []
+        token.id        = user.id
+        token.rol       = (user as any).rol
+        token.nombre    = (user as any).nombre
+        token.permisos  = (user as any).permisos ?? []
         token.perfil_profesional_id = (user as any).perfil_profesional_id ?? null
         token.paciente_id           = (user as any).paciente_id ?? null
+        token.apiToken  = (user as any).apiToken   // ← persistir JWT del backend
       }
       return token
     },
@@ -68,6 +70,8 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).perfil_profesional_id = (token as any).perfil_profesional_id ?? null
         ;(session.user as any).paciente_id           = (token as any).paciente_id ?? null
       }
+      // Exponer apiToken en el top-level de session para que apiFetch lo consuma
+      ;(session as any).apiToken = (token as any).apiToken ?? null
       return session
     },
   },
