@@ -7,11 +7,34 @@ import { es } from 'date-fns/locale'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useFeriados, useCrearFeriado, useEliminarFeriado, useSedes } from '@/hooks/useApi'
+import { usePermisos } from '@/hooks/usePermisos'
 
 type Tab = 'clinica' | 'sedes' | 'agenda' | 'facturacion' | 'feriados' | 'integraciones'
 
 export default function ConfiguracionPage() {
+  const permisos = usePermisos()
   const [tab, setTab] = useState<Tab>('clinica')
+
+  // Configuración es admin-only. Sin permiso global ('*') mostramos un
+  // estado vacío en lugar del 403 crudo de la API.
+  if (!permisos.has('*')) {
+    return (
+      <div style={{ padding: 48, maxWidth: 540, margin: '60px auto', textAlign: 'center' }}>
+        <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
+          Sección restringida
+        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--noir)', marginBottom: 8 }}>Sin acceso a Configuración</h1>
+        <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>
+          Esta sección está reservada para administradores generales.
+          Si necesitás modificar datos de la clínica, sedes, reglas de agenda o
+          parámetros de facturación, contactá a un administrador.
+        </p>
+        <Link href="/admin/dashboard" style={{ display: 'inline-block', padding: '10px 18px', background: 'var(--teal)', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 500, textDecoration: 'none' }}>
+          Volver al dashboard
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
