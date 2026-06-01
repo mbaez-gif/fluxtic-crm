@@ -2,14 +2,17 @@
  * Plugin de autenticacion y autorizacion para Fastify.
  *
  * Decora cada request con `request.user` cuando llega un token valido en
- * `Authorization: Bearer <token>` o en la cookie de sesion. Si no hay token,
- * la ruta queda accesible salvo que el handler llame a `requireAuth()`.
+ * `Authorization: Bearer <token>`. Acepta dos formatos:
  *
- * Tambien expone `requirePermiso(permiso)` para chequeo de policies.
+ *   1. JWT firmado con NEXTAUTH_SECRET (default, emitido por POST /auth/login)
+ *   2. `internal:<usuario_id>|<INTERNAL_API_TOKEN>` — fallback server-to-server
+ *
+ * Expone `requireAuth()` y `requirePermiso(permiso)` en cada request.
  */
 
 import fp from 'fastify-plugin'
 import { FastifyInstance, FastifyRequest } from 'fastify'
+import jwt from 'jsonwebtoken'
 import type { RolUsuario } from '@prisma/client'
 import { prisma } from './prisma'
 import { hasPermiso, hasPermisoFlexible, type Permiso } from './policies'
@@ -33,25 +36,6 @@ declare module 'fastify' {
   }
 }
 
-async function resolveUserFromToken(token: string): Promise<AuthUser | null> {
-  // En Etapa 1 el token es un JWT generado por NextAuth (frontend) firmado con
-  // NEXTAUTH_SECRET. Para evitar acoplar el plugin a la libreria de NextAuth,
-  // aceptamos tambien un fallback: token directo = usuario_id firmado por
-  // INTERNAL_API_TOKEN. La validacion real con JWT vive en C07/C08.
-  if (!token) return null
-
-  // Fallback simple: token = "internal:<usuario_id>" usando INTERNAL_API_TOKEN
-  if (token.startsWith('internal:')) {
-    const expected = process.env.INTERNAL_API_TOKEN
-    if (!expected) return null
-    const [, payload] = token.split(':', 2)
-    const [usuarioId, providedSecret] = (payload ?? '').split('|')
-    if (providedSecret !== expected || !usuarioId) return null
-    return loadUser(usuarioId)
-  }
-  return null
-}
-
 async function loadUser(id: string): Promise<AuthUser | null> {
   const u = await prisma.usuario.findUnique({
     where: { id },
@@ -68,6 +52,33 @@ async function loadUser(id: string): Promise<AuthUser | null> {
     perfil_profesional_id: u.perfil_profesional?.id,
     paciente_id: u.paciente?.id,
   }
+}
+
+async function resolveUserFromToken(token: string): Promise<AuthUser | null> {
+  if (!token) return null
+
+  // Formato 1: JWT propio firmado con NEXTAUTH_SECRET
+  const secret = process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET
+  if (secret) {
+    try {
+      const payload = jwt.verify(token, secret) as { id?: string }
+      if (payload?.id) return loadUser(payload.id)
+    } catch {
+      // continua al fallback
+    }
+  }
+
+  // Formato 2 (fallback server-to-server): "internal:<usuario_id>|<INTERNAL_API_TOKEN>"
+  if (token.startsWith('internal:')) {
+    const expected = process.env.INTERNAL_API_TOKEN
+    if (!expected) return null
+    const [, payload] = token.split(':', 2)
+    const [usuarioId, providedSecret] = (payload ?? '').split('|')
+    if (providedSecret !== expected || !usuarioId) return null
+    return loadUser(usuarioId)
+  }
+
+  return null
 }
 
 async function authPlugin(app: FastifyInstance) {
