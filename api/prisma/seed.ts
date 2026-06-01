@@ -398,6 +398,75 @@ async function main() {
     }
   }
 
+  // ── Turnos del día actual en estados mixtos (demo Centro de Operaciones) ──
+  // Idempotente: solo se ejecuta si hoy hay menos de 6 turnos.
+  const hoyInicio = new Date(); hoyInicio.setHours(0, 0, 0, 0)
+  const hoyFin    = new Date(); hoyFin.setHours(23, 59, 59, 999)
+  const turnosHoy = await prisma.turno.count({ where: { fecha_hora: { gte: hoyInicio, lte: hoyFin } } })
+  if (turnosHoy < 6) {
+    const pacsDemo = await prisma.paciente.findMany({ take: 10, orderBy: { created_at: 'asc' } })
+    const profsDemo = await prisma.perfilProfesional.findMany({ include: { prestaciones: { include: { prestacion: true } } } })
+    const consultsDemo = await prisma.consultorio.findMany()
+    const ahoraMs = Date.now()
+
+    // (hora, estado relativo a la hora actual)
+    const plan = [
+      { offsetHs: -3,  estado: 'ATENDIDO' },
+      { offsetHs: -2,  estado: 'ATENDIDO' },
+      { offsetHs: -2,  estado: 'AUSENTE' },
+      { offsetHs: -1,  estado: 'ATENDIDO' },
+      { offsetHs: -1,  estado: 'CANCELADO' },
+      { offsetHs: 0,   estado: 'EN_ATENCION' },
+      { offsetHs: 0,   estado: 'EN_SALA_ESPERA' },
+      { offsetHs: 1,   estado: 'CONFIRMADO' },
+      { offsetHs: 2,   estado: 'CONFIRMADO' },
+      { offsetHs: 3,   estado: 'PENDIENTE' },
+      { offsetHs: 4,   estado: 'PENDIENTE' },
+      { offsetHs: 5,   estado: 'PENDIENTE' },
+    ]
+
+    for (let i = 0; i < plan.length; i++) {
+      const p = plan[i]
+      const prof = profsDemo[i % profsDemo.length]
+      const prest = prof.prestaciones[0]?.prestacion
+      if (!prest) continue
+      const pac = pacsDemo[i % pacsDemo.length]
+      const consult = consultsDemo[i % consultsDemo.length]
+      const fecha = new Date(ahoraMs + p.offsetHs * 3600 * 1000)
+      fecha.setMinutes(0, 0, 0)
+
+      const data: any = {
+        paciente_id: pac.id,
+        profesional_id: prof.id,
+        prestacion_id: prest.id,
+        sede_id: consult.sede_id,
+        consultorio_id: consult.id,
+        fecha_hora: fecha,
+        duracion_min: prest.duracion_min,
+        estado: p.estado,
+        motivo_consulta: p.estado === 'PENDIENTE' ? 'Consulta de control' : null,
+        recordatorio_24h_enviado: p.estado !== 'PENDIENTE',
+      }
+      if (p.estado === 'EN_SALA_ESPERA') {
+        data.ingreso_sala_at = new Date(fecha.getTime() - 5 * 60000)
+      }
+      if (p.estado === 'EN_ATENCION') {
+        data.ingreso_sala_at = new Date(fecha.getTime() - 10 * 60000)
+        data.inicio_atencion_at = new Date(fecha.getTime() - 2 * 60000)
+      }
+      if (p.estado === 'ATENDIDO') {
+        data.ingreso_sala_at = new Date(fecha.getTime() - 5 * 60000)
+        data.inicio_atencion_at = new Date(fecha.getTime() + 2 * 60000)
+        data.fin_atencion_at = new Date(fecha.getTime() + prest.duracion_min * 60000)
+      }
+      if (p.estado === 'CANCELADO') {
+        data.cancelado_at = new Date(fecha.getTime() - 30 * 60000)
+        data.cancelado_motivo = 'Reagendado por paciente'
+      }
+      await prisma.turno.create({ data })
+    }
+  }
+
   // ── Asociar Usuario PACIENTE con Paciente ──────────────────
   await prisma.paciente.update({
     where: { dni: '28456789' },
@@ -435,10 +504,238 @@ async function main() {
     }
   }
 
+  // ── Medicamentos del vademécum (idempotente por codigo_externo o nombre) ──
+  const medicamentos = [
+    { codigo_externo: 'KAI-001', nombre_comercial: 'Amoxidal 500',    principio_activo: 'Amoxicilina',      laboratorio: 'Roemmers',    presentacion: '500 mg comprimidos', via_admin: 'Oral', prescripcion_requerida: true },
+    { codigo_externo: 'KAI-002', nombre_comercial: 'Ibupirac 600',    principio_activo: 'Ibuprofeno',       laboratorio: 'Pfizer',      presentacion: '600 mg comprimidos', via_admin: 'Oral', prescripcion_requerida: false },
+    { codigo_externo: 'KAI-003', nombre_comercial: 'Atenolol Beta',   principio_activo: 'Atenolol',         laboratorio: 'Beta',        presentacion: '50 mg comprimidos',  via_admin: 'Oral', prescripcion_requerida: true,
+      interacciones: [{ principio: 'Verapamilo', severidad: 'SEVERA', descripcion: 'Bradicardia severa, bloqueo AV' }] },
+    { codigo_externo: 'KAI-004', nombre_comercial: 'Enalapril Bagó',  principio_activo: 'Enalapril',        laboratorio: 'Bagó',        presentacion: '10 mg comprimidos',  via_admin: 'Oral', prescripcion_requerida: true,
+      interacciones: [{ principio: 'Potasio', severidad: 'MODERADA', descripcion: 'Hiperkalemia' }] },
+    { codigo_externo: 'KAI-005', nombre_comercial: 'Metformina 850',  principio_activo: 'Metformina',       laboratorio: 'Gador',       presentacion: '850 mg comprimidos', via_admin: 'Oral', prescripcion_requerida: true },
+    { codigo_externo: 'KAI-006', nombre_comercial: 'Paracetamol',     principio_activo: 'Paracetamol',      laboratorio: 'Genérico',    presentacion: '500 mg comprimidos', via_admin: 'Oral', prescripcion_requerida: false },
+    { codigo_externo: 'KAI-007', nombre_comercial: 'Omeprazol Raffo', principio_activo: 'Omeprazol',        laboratorio: 'Raffo',       presentacion: '20 mg cápsulas',     via_admin: 'Oral', prescripcion_requerida: true },
+    { codigo_externo: 'KAI-008', nombre_comercial: 'Losartan Roemmers', principio_activo: 'Losartan',       laboratorio: 'Roemmers',    presentacion: '50 mg comprimidos',  via_admin: 'Oral', prescripcion_requerida: true },
+    { codigo_externo: 'KAI-009', nombre_comercial: 'Salbutamol Genfar', principio_activo: 'Salbutamol',     laboratorio: 'Genfar',      presentacion: 'Aerosol 100mcg',     via_admin: 'Inhalatoria', prescripcion_requerida: true },
+    { codigo_externo: 'KAI-010', nombre_comercial: 'Levotiroxina',    principio_activo: 'Levotiroxina',     laboratorio: 'Glaxo',       presentacion: '50 mcg comprimidos', via_admin: 'Oral', prescripcion_requerida: true },
+    { codigo_externo: 'KAI-011', nombre_comercial: 'Clonazepam',      principio_activo: 'Clonazepam',       laboratorio: 'Roche',       presentacion: '0.5 mg comprimidos', via_admin: 'Oral', prescripcion_requerida: true,
+      interacciones: [{ principio: 'Alcohol', severidad: 'SEVERA', descripcion: 'Depresión SNC' }] },
+    { codigo_externo: 'KAI-012', nombre_comercial: 'Cefalexina 500',  principio_activo: 'Cefalexina',       laboratorio: 'Bagó',        presentacion: '500 mg cápsulas',    via_admin: 'Oral', prescripcion_requerida: true },
+  ]
+  for (const m of medicamentos) {
+    const { interacciones, ...rest } = m as any
+    await prisma.medicamento.upsert({
+      where: { codigo_externo: m.codigo_externo },
+      create: { ...rest, interacciones: interacciones ? JSON.stringify(interacciones) : null },
+      update: {},
+    })
+  }
+
+  // ── Turnos en distintos estados (atendidos + ausentes + cancelados) ──
+  // Re-usar pacientes y profesionales del seed previo
+  const turnosAdicionales = await prisma.turno.count({ where: { estado: 'ATENDIDO' } })
+  if (turnosAdicionales === 0) {
+    const ahora = new Date()
+    const pacs = await prisma.paciente.findMany({ take: 8, orderBy: { created_at: 'asc' } })
+    const profs = await prisma.perfilProfesional.findMany({ include: { prestaciones: { include: { prestacion: true } } } })
+    const consultorios = await prisma.consultorio.findMany({ take: 4 })
+
+    // 12 turnos pasados (mezcla de estados)
+    for (let i = 0; i < 12; i++) {
+      const diasAtras = (i % 30) + 1
+      const hora = 9 + (i % 8)
+      const fecha = new Date(ahora.getTime() - diasAtras * 24 * 3600 * 1000)
+      fecha.setHours(hora, 0, 0, 0)
+      const prof = profs[i % profs.length]
+      const prest = prof.prestaciones[0]?.prestacion
+      if (!prest) continue
+      const pac = pacs[i % pacs.length]
+      const consult = consultorios[i % consultorios.length]
+      const estado = i < 8 ? 'ATENDIDO' : i < 10 ? 'AUSENTE' : 'CANCELADO'
+      await prisma.turno.create({
+        data: {
+          paciente_id: pac.id,
+          profesional_id: prof.id,
+          prestacion_id: prest.id,
+          sede_id: consult.sede_id,
+          consultorio_id: consult.id,
+          fecha_hora: fecha,
+          duracion_min: prest.duracion_min,
+          estado: estado as any,
+          motivo_consulta: estado === 'ATENDIDO' ? 'Control de rutina' : null,
+          recordatorio_24h_enviado: true,
+          recordatorio_48h_enviado: i % 2 === 0,
+          ...(estado === 'ATENDIDO' ? {
+            inicio_atencion_at: new Date(fecha.getTime() + 5 * 60000),
+            fin_atencion_at: new Date(fecha.getTime() + prest.duracion_min * 60000),
+          } : {}),
+          ...(estado === 'CANCELADO' ? { cancelado_at: new Date(fecha.getTime() - 24 * 3600 * 1000), cancelado_motivo: 'Cancelado por paciente' } : {}),
+        },
+      })
+    }
+  }
+
+  // ── Comprobantes + Pagos + Deudas (para reflejar en caja y reportes) ──
+  const comprobantesExistentes = await prisma.comprobante.count()
+  if (comprobantesExistentes === 0) {
+    const pacsConTurnos = await prisma.turno.findMany({
+      where: { estado: 'ATENDIDO' },
+      include: { paciente: true, prestacion: true },
+      take: 8,
+    })
+
+    for (let i = 0; i < pacsConTurnos.length; i++) {
+      const t = pacsConTurnos[i]
+      const monto = t.prestacion ? Number(t.prestacion.precio_particular) : 8000
+      const pagado = i < 6  // 6 pagados, 2 con saldo
+      const comp = await prisma.comprobante.create({
+        data: {
+          paciente_id: t.paciente_id,
+          turno_id: t.id,
+          tipo: 'RECIBO',
+          subtotal: monto,
+          descuento: 0,
+          total: monto,
+          total_pagado: pagado ? monto : 0,
+          saldo: pagado ? 0 : monto,
+          estado: pagado ? 'PAGADO' : 'EMITIDO',
+          items: {
+            create: [{
+              prestacion_id: t.prestacion_id,
+              descripcion: t.prestacion?.nombre ?? 'Consulta',
+              cantidad: 1,
+              precio_unitario: monto,
+              subtotal: monto,
+            }],
+          },
+        },
+      })
+      if (pagado) {
+        const medios = ['EFECTIVO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'MERCADOPAGO'] as const
+        const medio = medios[i % medios.length]
+        const pago = await prisma.pago.create({
+          data: {
+            comprobante_id: comp.id,
+            paciente_id: t.paciente_id,
+            monto,
+            medio,
+            fecha: t.fin_atencion_at ?? t.fecha_hora,
+          },
+        })
+        await prisma.movimientoCaja.create({
+          data: {
+            pago_id: pago.id,
+            usuario_id: userMedico.id,
+            tipo: 'INGRESO',
+            monto,
+            medio,
+            concepto: `${t.prestacion?.nombre ?? 'Consulta'}`,
+            fecha: pago.fecha,
+          },
+        })
+      } else {
+        await prisma.deuda.create({
+          data: {
+            paciente_id: t.paciente_id,
+            comprobante_id: comp.id,
+            monto_original: monto,
+            saldo_actual: monto,
+            fecha_origen: t.fecha_hora,
+          },
+        })
+      }
+    }
+  }
+
+  // ── Comunicaciones (historial de WhatsApp enviado) ─────────────
+  const comunicacionesExistentes = await prisma.comunicacionPaciente.count()
+  if (comunicacionesExistentes === 0) {
+    const turnosRecientes = await prisma.turno.findMany({
+      include: { paciente: true },
+      orderBy: { fecha_hora: 'desc' },
+      take: 10,
+    })
+    for (const t of turnosRecientes) {
+      if (!t.paciente.telefono) continue
+      const tipos: Array<['CONFIRMACION_TURNO' | 'RECORDATORIO_24H' | 'POSTCONSULTA', string]> = [
+        ['CONFIRMACION_TURNO', `Hola ${t.paciente.nombre}, confirmamos tu turno.`],
+        ['RECORDATORIO_24H',   `Hola ${t.paciente.nombre}, te recordamos tu turno mañana.`],
+      ]
+      if (t.estado === 'ATENDIDO') {
+        tipos.push(['POSTCONSULTA', `Hola ${t.paciente.nombre}, ¿cómo te sentís después de tu consulta?`])
+      }
+      for (const [tipo, cuerpo] of tipos) {
+        await prisma.comunicacionPaciente.create({
+          data: {
+            paciente_id: t.paciente_id,
+            turno_id: t.id,
+            canal: 'WHATSAPP',
+            tipo,
+            destino: t.paciente.telefono,
+            cuerpo,
+            estado: tipo === 'POSTCONSULTA' ? 'RESPONDIDA' : 'ENTREGADA',
+            enviada_at: new Date(t.fecha_hora.getTime() - 24 * 3600 * 1000),
+            entregada_at: new Date(t.fecha_hora.getTime() - 24 * 3600 * 1000 + 60000),
+          },
+        })
+      }
+    }
+  }
+
+  // ── Alertas clínicas adicionales en algunos pacientes ──────────
+  const alertasExistentes = await prisma.alertaClinica.count()
+  if (alertasExistentes === 0) {
+    const pacsAlerta = await prisma.paciente.findMany({ take: 4, orderBy: { created_at: 'asc' } })
+    if (pacsAlerta[1]) {
+      await prisma.alertaClinica.create({
+        data: { paciente_id: pacsAlerta[1].id, titulo: 'Hipertensión arterial controlada', descripcion: 'En tratamiento con Enalapril 10mg/día', severidad: 'ADVERTENCIA' },
+      })
+    }
+    if (pacsAlerta[2]) {
+      await prisma.alertaClinica.create({
+        data: { paciente_id: pacsAlerta[2].id, titulo: 'Alergia severa a AINEs', descripcion: 'No prescribir Ibuprofeno ni AAS', severidad: 'CRITICA' },
+      })
+    }
+    if (pacsAlerta[3]) {
+      await prisma.alertaClinica.create({
+        data: { paciente_id: pacsAlerta[3].id, titulo: 'Diabetes tipo 2', descripcion: 'Metformina 850mg/día — control trimestral', severidad: 'INFO' },
+      })
+    }
+  }
+
+  // ── Insumos básicos para mostrar stock ─────────────────────────
+  const insumosExistentes = await prisma.insumo.count()
+  if (insumosExistentes === 0) {
+    const insumos = [
+      { codigo: 'INS-001', nombre: 'Guantes de látex talle M', unidad: 'caja', stock_actual: 12, stock_minimo: 10 },
+      { codigo: 'INS-002', nombre: 'Gasas estériles 10x10', unidad: 'pack',    stock_actual: 8,  stock_minimo: 15 },
+      { codigo: 'INS-003', nombre: 'Alcohol en gel 500ml',   unidad: 'unidad', stock_actual: 24, stock_minimo: 10 },
+      { codigo: 'INS-004', nombre: 'Jeringas 5ml',           unidad: 'caja',   stock_actual: 6,  stock_minimo: 20 },
+      { codigo: 'INS-005', nombre: 'Baja-lenguas',           unidad: 'pack',   stock_actual: 18, stock_minimo: 5 },
+    ]
+    for (const i of insumos) {
+      await prisma.insumo.create({ data: i as any })
+    }
+  }
+
   console.log('✅ Seed completo')
   console.log('---')
   console.log('Usuarios demo (password: ' + PWD_DEFAULT + ')')
   usuariosBase.forEach((u) => console.log(`  ${u.rol.padEnd(20)} ${u.email}`))
+  console.log('---')
+  console.log('Datos sembrados:')
+  console.log(`  ${await prisma.paciente.count()} pacientes`)
+  console.log(`  ${await prisma.perfilProfesional.count()} profesionales`)
+  console.log(`  ${await prisma.especialidad.count()} especialidades`)
+  console.log(`  ${await prisma.prestacion.count()} prestaciones`)
+  console.log(`  ${await prisma.sede.count()} sedes (${await prisma.consultorio.count()} consultorios)`)
+  console.log(`  ${await prisma.coberturaMedica.count()} coberturas (${await prisma.planCobertura.count()} planes)`)
+  console.log(`  ${await prisma.turno.count()} turnos`)
+  console.log(`  ${await prisma.comprobante.count()} comprobantes (${await prisma.pago.count()} pagos, ${await prisma.deuda.count()} deudas)`)
+  console.log(`  ${await prisma.comunicacionPaciente.count()} comunicaciones`)
+  console.log(`  ${await prisma.medicamento.count()} medicamentos`)
+  console.log(`  ${await prisma.insumo.count()} insumos`)
+  console.log(`  ${await prisma.alertaClinica.count()} alertas clínicas`)
 }
 
 main()
