@@ -24,9 +24,10 @@ const NAV: NavSection[] = [
   {
     label: 'Operación',
     items: [
-      { href: '/admin/dashboard',  label: 'Dashboard',      icon: 'dashboard', permiso: '*' },
-      { href: '/admin/agenda',     label: 'Agenda médica',  icon: 'calendar',  permiso: 'agenda:ver' },
-      { href: '/admin/pacientes',  label: 'Pacientes',      icon: 'users',     permiso: 'paciente:ver' },
+      { href: '/admin/dashboard',    label: 'Dashboard',         icon: 'dashboard', permiso: '*' },
+      { href: '/admin/operaciones',  label: 'Centro de operaciones', icon: 'ops',  permiso: 'agenda:ver' },
+      { href: '/admin/agenda',       label: 'Agenda médica',     icon: 'calendar',  permiso: 'agenda:ver' },
+      { href: '/admin/pacientes',    label: 'Pacientes',         icon: 'users',     permiso: 'paciente:ver' },
     ],
   },
   {
@@ -44,6 +45,7 @@ const NAV: NavSection[] = [
       { href: '/admin/facturacion',   label: 'Facturación',    icon: 'receipt', permiso: 'comprobante:ver' },
       { href: '/admin/coberturas',    label: 'Obras sociales', icon: 'shield',  permiso: 'cobertura:ver' },
       { href: '/admin/insumos',       label: 'Insumos',        icon: 'box',     permiso: '*' },
+      { href: '/admin/medicamentos',  label: 'Medicamentos',   icon: 'syringe', permiso: '*' },
       { href: '/admin/comunicaciones',label: 'Comunicaciones', icon: 'chat',    permiso: 'comunicacion:ver' },
     ],
   },
@@ -60,6 +62,7 @@ const NAV: NavSection[] = [
 
 const ICONS: Record<string, React.ReactNode> = {
   dashboard:    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+  ops:          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/><path d="M3 12h2M19 12h2M12 3v2M12 19v2"/></svg>,
   calendar:     <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
   users:        <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   medical:      <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>,
