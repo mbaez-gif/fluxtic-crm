@@ -577,7 +577,41 @@ export function useDisponibilidad(params: { prestacion_id?: string; profesional_
 
 export function useCrearReservaPublica() {
   return useMutation({
-    mutationFn: (body: any) => api.post<any>('/reservas-publicas', body),
+    mutationFn: (body: any) => api.post<any>('/reservas-publicas', body, { auth: false }),
+  })
+}
+
+// ── Portal del paciente ────────────────────────────────────────
+export function usePortalMiPerfil() {
+  return useQuery({ queryKey: ['portal-mi-perfil'], queryFn: () => api.get<any>('/portal/mi-perfil') })
+}
+export function usePortalMisTurnos() {
+  return useQuery({ queryKey: ['portal-mis-turnos'], queryFn: () => api.get<any[]>('/portal/mis-turnos') })
+}
+export function usePortalMiHistoria() {
+  return useQuery({ queryKey: ['portal-mi-historia'], queryFn: () => api.get<any>('/portal/mi-historia') })
+}
+export function usePortalMisDocumentos() {
+  return useQuery({ queryKey: ['portal-mis-documentos'], queryFn: () => api.get<any[]>('/portal/mis-documentos') })
+}
+export function usePortalMisPagos() {
+  return useQuery({ queryKey: ['portal-mis-pagos'], queryFn: () => api.get<any>('/portal/mis-pagos') })
+}
+
+// ── Medicamentos (vademécum) ───────────────────────────────────
+export function useMedicamentos(q: string = '') {
+  return useQuery({
+    queryKey: ['medicamentos', q],
+    queryFn: () => api.get<any[]>(`/medicamentos${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+    staleTime: 60 * 1000,
+  })
+}
+
+export function useCrearMedicamento() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: any) => api.post('/medicamentos', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['medicamentos'] }),
   })
 }
 
