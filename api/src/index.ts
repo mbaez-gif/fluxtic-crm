@@ -34,6 +34,7 @@ import { recetasRoutes } from './routes/recetas'
 import { telemedicinaRoutes } from './routes/telemedicina'
 import { clinicoRoutes } from './routes/clinico'
 import { configuracionRoutes } from './routes/configuracion'
+import { operacionesRoutes } from './routes/operaciones'
 
 const app = Fastify({
   logger: {
@@ -82,7 +83,7 @@ app.addHook('preHandler', async (request, reply) => {
   }
 })
 
-// ── Rutas ─────────────────────────────────────────────────────────
+// ── Rutas ────────────────────────────────────────
 app.register(healthRoutes)
 app.register(sedesRoutes,          { prefix: '/sedes' })
 app.register(especialidadesRoutes, { prefix: '/especialidades' })
@@ -112,6 +113,7 @@ app.register(recetasRoutes,        { prefix: '/recetas' })
 app.register(telemedicinaRoutes,   { prefix: '/telemedicina' })
 app.register(clinicoRoutes,        { prefix: '/clinico' })
 app.register(configuracionRoutes,  { prefix: '/configuracion' })
+app.register(operacionesRoutes,    { prefix: '/operaciones' })
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error)
